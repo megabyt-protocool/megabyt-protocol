@@ -1,0 +1,206 @@
+import * as anchor from "@coral-xyz/anchor";
+import { PublicKey, Keypair, ComputeBudgetProgram } from "@solana/web3.js";
+import { Program, BN } from "@coral-xyz/anchor";
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function pick(obj: any, ...keys: string[]) {
+  for (const k of keys) {
+    if (obj && obj[k] !== undefined && obj[k] !== null) return obj[k];
+  }
+  return null;
+}
+
+function randomSeed32(): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < 32; i++) out.push(Math.floor(Math.random() * 256));
+  return out;
+}
+
+(async () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = (anchor.workspace as any).Megabyt as Program<any>;
+  const wallet = provider.wallet as any;
+
+  console.log("");
+  console.log("==============================================");
+  console.log("  MEGABYT — DEMO CLOSE CURRENT DRAW");
+  console.log("==============================================");
+  console.log("");
+
+  const [globalState] = PublicKey.findProgramAddressSync(
+    [Buffer.from("global-state-v3")],
+    program.programId
+  );
+
+  const globalData = await program.account.globalState.fetch(globalState);
+  const drawId = Number(pick(globalData, "currentDrawId", "current_draw_id"));
+
+  const [drawPda] = PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("draw-v3"),
+      new anchor.BN(drawId).toArrayLike(Buffer, "le", 8),
+    ],
+    program.programId
+  );
+
+  console.log("Draw ID:", drawId);
+  console.log("Draw PDA:", drawPda.toBase58());
+  console.log("");
+
+  const draw = await program.account.draw.fetch(drawPda);
+
+  const isClosed = !!pick(draw, "isClosed", "is_closed");
+  const randomnessRequested = !!pick(draw, "randomnessRequested", "randomness_requested");
+  const randomnessFulfilled = !!pick(draw, "randomnessFulfilled", "randomness_fulfilled");
+
+  console.log("isClosed:", isClosed);
+  console.log("randomnessRequested:", randomnessRequested);
+  console.log("randomnessFulfilled:", randomnessFulfilled);
+  console.log("");
+
+  const randomnessKp = Keypair.generate();
+
+  if (!randomnessRequested) {
+    console.log("REQUEST RANDOMNESS...");
+
+    await program.methods
+      .requestRandomness()
+      .accounts({
+        draw: drawPda,
+        randomnessAccount: randomnessKp.publicKey,
+      })
+      .rpc();
+
+    console.log("OK request_randomness");
+    await sleep(1000);
+  }
+
+  if (!randomnessFulfilled) {
+    console.log("FULFILL RANDOMNESS...");
+
+    const seed = randomSeed32();
+
+    await program.methods
+      .fulfillRandomness(seed)
+      .accounts({
+        admin: wallet.publicKey,
+        globalState,
+        draw: drawPda,
+      })
+      .rpc();
+
+    console.log("OK fulfill_randomness");
+    await sleep(1000);
+  }
+
+  if (!isClosed) {
+    console.log("CLOSE DRAW...");
+
+    const cuIx = ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 });
+
+    await program.methods
+      .closeDraw()
+      .accounts({
+        globalState,
+        draw: drawPda,
+        randomnessAccountData: randomnessKp.publicKey,
+      })
+      .preInstructions([cuIx])
+      .rpc();
+
+    console.log("OK close_draw");
+    await sleep(1500);
+  }
+
+  const drawClosed = await program.account.draw.fetch(drawPda);
+
+  console.log("");
+  console.log("RESULT:");
+  console.log("Numbers:", pick(drawClosed, "resultNumbers", "result_numbers"));
+  console.log("Crypto:", pick(drawClosed, "resultCrypto", "result_crypto"));
+  console.log("");
+
+  console.log("SETTLE...");
+
+  const tickets = await program.account.ticket.all([
+    {
+      memcmp: {
+        offset: 40,
+        bytes: drawPda.toBase58(),
+      },
+    },
+  ]);
+
+  let offset = 0;
+  while (offset < tickets.length) {
+    const batch = tickets.slice(offset, offset + 20);
+
+    const rem = batch.map((t: any) => ({
+      pubkey: t.publicKey,
+      isWritable: true,
+      isSigner: false,
+    }));
+
+    await program.methods
+      .settleTickets(new BN(rem.length))
+      .accounts({ draw: drawPda })
+      .remainingAccounts(rem)
+      .rpc();
+
+    offset += 20;
+    console.log("Settled:", offset);
+    await sleep(300);
+  }
+
+  console.log("FINALIZE...");
+
+  await program.methods
+    .finalizePayouts()
+    .accounts({
+      globalState,
+      draw: drawPda,
+    })
+    .rpc();
+
+  console.log("OK finalize");
+
+  console.log("PAY WINNERS...");
+
+  const allTickets = await program.account.ticket.all([
+    {
+      memcmp: {
+        offset: 40,
+        bytes: drawPda.toBase58(),
+      },
+    },
+  ]);
+
+  for (const t of allTickets) {
+    try {
+      if (!t.account.paid && t.account.tier <= 9) {
+        await program.methods
+          .payWinnersBatch(new BN(1))
+          .accounts({
+            draw: drawPda,
+            ticket: t.publicKey,
+            globalState,
+          })
+          .rpc();
+
+        console.log("Paid:", t.publicKey.toBase58());
+        await sleep(200);
+      }
+    } catch (e) {}
+  }
+
+  console.log("");
+  console.log("==============================================");
+  console.log("  DRAW FINALIZADA COMPLETAMENTE");
+  console.log("==============================================");
+})();
+

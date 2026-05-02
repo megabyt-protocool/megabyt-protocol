@@ -1,0 +1,50 @@
+use anchor_lang::prelude::*;
+use anchor_spl::token::{Mint, Token, TokenAccount};
+
+pub mod state;
+pub use state::*;
+
+declare_id!("An816mYUVWqRShRwHDg24bzzXfPcka2u9NBaHSYrbn37");
+
+#[program]
+pub mod megabyt {
+    use super::*;
+
+    pub fn initialize(ctx: Context<Initialize>, ticket_price: u64) -> Result<()> {
+        let state = &mut ctx.accounts.global_state;
+
+        state.admin = ctx.accounts.admin.key();
+        state.treasury = ctx.accounts.treasury.key();
+        state.ticket_price = ticket_price;
+        state.total_collected = 0;
+        state.total_users = 0;
+        state.total_draws = 0;
+        state.bump = ctx.bumps.global_state;
+
+        msg!("MegaByt Inicializado!");
+
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(
+        init,
+        payer = admin,
+        space = 8 + GlobalState::SIZE,
+        seeds = [b"global-state"],
+        bump
+    )]
+    pub global_state: Account<'info, GlobalState>,
+
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    /// CHECK: carteira treasury
+    pub treasury: AccountInfo<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
+

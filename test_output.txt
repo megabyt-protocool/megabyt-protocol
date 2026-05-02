@@ -1,0 +1,58 @@
+   Compiling megabyt v0.1.0 (/home/leandro/projects/megabyt/programs/megabyt)
+warning: ambiguous glob re-exports
+  --> programs/megabyt/src/instructions.rs:7:9
+   |
+7  | pub use buy_ticket::*;
+   |         ^^^^^^^^^^^^^ the name `handler` in the value namespace is first re-exported here
+...
+11 | pub use open_draw::*;
+   |         ------------ but the name `handler` in the value namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: `megabyt` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 5.89s
+   Compiling megabyt v0.1.0 (/home/leandro/projects/megabyt/programs/megabyt)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.32s
+     Running unittests src/lib.rs (/home/leandro/projects/megabyt/target/debug/deps/megabyt-757e270fa8b985b5)
+
+Found a 'test' script in the Anchor.toml. Running it as a test suite!
+
+Running test suite: "/home/leandro/projects/megabyt/Anchor.toml"
+
+yarn run v1.22.22
+$ /home/leandro/projects/megabyt/node_modules/.bin/ts-mocha -p ./tsconfig.json -t 1000000 'tests/**/*.ts'
+
+
+  megabyt - rodada completa
+    ✔ initialize
+    ✔ initialize_vaults (75ms)
+
+DRAW ABERTO
+ID: 1
+Tickets: 0
+Total arrecadado: 0
+Números atuais: [ 0, 0, 0, 0, 0, 0 ]
+Cripto atual: 0
+    ✔ open_draw
+
+TICKET COMPRADO
+Tickets na rodada: 1
+Total da rodada: 1000000
+Total global coletado: 1000000
+Números do ticket: [ 5, 11, 22, 34, 45, 60 ]
+Cripto do ticket: 7
+    ✔ buy_ticket (72ms)
+
+RESULTADO DO SORTEIO
+Números sorteados: 8 - 20 - 34 - 45 - 59 - 62
+Cripto sorteada: 1
+Winner: 11111111111111111111111111111111
+Randomness requested: true
+Randomness fulfilled: true
+    ✔ close_draw
+
+
+  5 passing (499ms)
+
+Done in 3.39s.

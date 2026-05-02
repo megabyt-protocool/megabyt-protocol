@@ -1,0 +1,26 @@
+    Finished `release` profile [optimized] target(s) in 0.74s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.41s
+     Running unittests src/lib.rs (/home/leandro/projects/megabyt/target/debug/deps/megabyt-757e270fa8b985b5)
+
+Found a 'test' script in the Anchor.toml. Running it as a test suite!
+
+Running test suite: "/home/leandro/projects/megabyt/Anchor.toml"
+
+yarn run v1.22.22
+$ /home/leandro/projects/megabyt/node_modules/.bin/ts-mocha -p ./tsconfig.json -t 1000000 'tests/**/*.ts'
+
+
+  megabyt
+    ✔ initialize (374ms)
+    ✔ initialize_vaults (108ms)
+    ✔ open_draw (72ms)
+    ✔ buy_ticket (172ms)
+    ✔ close_draw (1588ms)
+    ✔ settle_tickets (64ms)
+    ✔ finalize_payouts (86ms)
+    ✔ pay_winners_batch (77ms)
+
+
+  8 passing (3s)
+
+Done in 5.42s.

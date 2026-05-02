@@ -1,0 +1,31 @@
+pub fn expand_seed_to_numbers(seed: [u8; 32]) -> ([u8; 6], u8) {
+    let mut nums: Vec<u8> = Vec::new();
+    let mut i = 0usize;
+
+    while nums.len() < 6 && i < seed.len() {
+        let n = (seed[i] % 50) + 1;
+        if !nums.contains(&n) {
+            nums.push(n);
+        }
+        i += 1;
+    }
+
+    // fallback caso não complete 6 números
+    let mut candidate = 1u8;
+    while nums.len() < 6 {
+        if !nums.contains(&candidate) {
+            nums.push(candidate);
+        }
+        candidate += 1;
+    }
+
+    nums.sort();
+
+    let crypto = (seed[31] % 6) + 1;
+
+    (
+        [nums[0], nums[1], nums[2], nums[3], nums[4], nums[5]],
+        crypto,
+    )
+}
+

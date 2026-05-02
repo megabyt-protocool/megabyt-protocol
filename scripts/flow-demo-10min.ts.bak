@@ -1,0 +1,407 @@
+const anchor = require("@coral-xyz/anchor");
+const {
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  ComputeBudgetProgram,
+} = require("@solana/web3.js");
+
+const {
+  TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+  getAccount,
+} = require("@solana/spl-token");
+
+const IDL = require("../target/idl/megabyt.json");
+
+const WAIT_MINUTES = 10;
+const ROUND_DURATION_SECONDS = 600;
+const SETTLE_BATCH = 50;
+
+function log(tag: string, msg: string) {
+  console.log(`  [${tag}] ${msg}`);
+}
+
+function hr() {
+  console.log("================================================================");
+}
+
+function step(n: number, title: string) {
+  hr();
+  console.log(`  STEP ${n}: ${title}`);
+  hr();
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function pick(obj: any, a: string, b: string) {
+  return obj?.[a] !== undefined && obj?.[a] !== null
+    ? obj[a]
+    : obj?.[b] !== undefined && obj?.[b] !== null
+    ? obj[b]
+    : null;
+}
+
+async function detectTP(conn: any, mint: PublicKey) {
+  const info = await conn.getAccountInfo(mint);
+  if (info && info.owner.equals(TOKEN_2022_PROGRAM_ID)) return TOKEN_2022_PROGRAM_ID;
+  return TOKEN_PROGRAM_ID;
+}
+
+async function confirmTx(conn: any, sig: string) {
+  const bh = await conn.getLatestBlockhash("confirmed");
+  await conn.confirmTransaction(
+    {
+      signature: sig,
+      blockhash: bh.blockhash,
+      lastValidBlockHeight: bh.lastValidBlockHeight,
+    },
+    "confirmed"
+  );
+}
+
+async function waitUntilDrawEnd(program: any, drawPda: PublicKey) {
+  while (true) {
+    const draw = await program.account.draw.fetch(drawPda);
+    const endTime = Number(pick(draw, "endTime", "end_time") || 0);
+    const now = Math.floor(Date.now() / 1000);
+    const diff = endTime - now;
+
+    if (diff <= 0) {
+      log("WAIT", "Draw end time reached");
+      break;
+    }
+
+    const shown = diff > 60 ? `${Math.ceil(diff / 60)} min` : `${diff}s`;
+    log("WAIT", `Remaining until close: ${shown}`);
+    await sleep(Math.min(diff, 30) * 1000);
+  }
+
+  await sleep(3000);
+}
+
+async function getTicketsForDraw(program: any, drawPda: PublicKey) {
+  const all = await program.account.ticket.all();
+  return all.filter((row: any) => {
+    const acc = row.account || {};
+    const drawField = acc.draw || acc.drawState || acc.draw_state || null;
+    return drawField && drawField.toBase58() === drawPda.toBase58();
+  });
+}
+
+async function main() {
+  const startedAt = Date.now();
+
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = new anchor.Program(IDL, provider);
+  const conn = provider.connection;
+  const wallet = provider.wallet.payer;
+
+  console.log("");
+  hr();
+  console.log("  MEGABYT — DEMO FLOW (10 MIN)");
+  console.log("  Open → wait manual bets → randomness → close → settle → finalize → pay");
+  hr();
+  console.log("");
+
+  const gs = PublicKey.findProgramAddressSync(
+    [Buffer.from("global-state-v3")],
+    program.programId
+  )[0];
+
+  const va = PublicKey.findProgramAddressSync(
+    [Buffer.from("vault-authority-v3")],
+    program.programId
+  )[0];
+
+  const g0 = await program.account.globalState.fetch(gs);
+  const pv = pick(g0, "prizeVault", "prize_vault");
+  const vi = await getAccount(conn, pv);
+  const mint = vi.mint;
+  const tp = await detectTP(conn, mint);
+
+  const currentDrawId = Number(pick(g0, "currentDrawId", "current_draw_id") || 0);
+  const nextDrawId = new anchor.BN(currentDrawId + 1);
+
+  const drawPda = PublicKey.findProgramAddressSync(
+    [Buffer.from("draw-v3"), nextDrawId.toArrayLike(Buffer, "le", 8)],
+    program.programId
+  )[0];
+
+  log("BOOT", `Program:      ${program.programId.toBase58()}`);
+  log("BOOT", `Wallet:       ${wallet.publicKey.toBase58()}`);
+  log("BOOT", `GlobalState:  ${gs.toBase58()}`);
+  log("BOOT", `PrizeVault:   ${pv.toBase58()}`);
+  log("BOOT", `Mint:         ${mint.toBase58()}`);
+  log("BOOT", `Next Draw ID: ${nextDrawId.toString()}`);
+  log("BOOT", `Draw PDA:     ${drawPda.toBase58()}`);
+  console.log("");
+
+  step(1, "OPEN DRAW");
+
+  const sigOpen = await program.methods
+    .openDraw(new anchor.BN(ROUND_DURATION_SECONDS))
+    .accounts({
+      admin: wallet.publicKey,
+      globalState: gs,
+      drawState: drawPda,
+      systemProgram: SystemProgram.programId,
+    })
+    .rpc();
+
+  await confirmTx(conn, sigOpen);
+  log("OK", `Draw #${nextDrawId.toString()} opened`);
+  log("INFO", `Duration: ${WAIT_MINUTES} minutes`);
+  console.log("");
+
+  step(2, "WAIT FOR MANUAL FRONTEND BETS");
+
+  console.log("  Use the frontend now to place bets during the open round.");
+  console.log("  Keep the frontend page open and buy tickets manually.");
+  console.log("");
+
+  await waitUntilDrawEnd(program, drawPda);
+  console.log("");
+
+  step(3, "REQUEST + FULFILL RANDOMNESS");
+
+  const randomnessKp = anchor.web3.Keypair.generate();
+
+  const sigReq = await program.methods
+    .requestRandomness()
+    .accounts({
+      draw: drawPda,
+      randomnessAccount: randomnessKp.publicKey,
+    })
+    .rpc();
+
+  await confirmTx(conn, sigReq);
+  log("OK", `Randomness requested: ${randomnessKp.publicKey.toBase58()}`);
+
+  const seed: number[] = [];
+  for (let i = 0; i < 32; i++) seed.push(Math.floor(Math.random() * 256));
+
+  const sigFulfill = await program.methods
+    .fulfillRandomness(seed)
+    .accounts({
+      admin: wallet.publicKey,
+      globalState: gs,
+      draw: drawPda,
+    })
+    .rpc();
+
+  await confirmTx(conn, sigFulfill);
+  log("OK", "Randomness fulfilled (test/demo mode)");
+  console.log("");
+
+  step(4, "CLOSE DRAW");
+
+  const closeIx = ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 });
+
+  const sigClose = await program.methods
+    .closeDraw()
+    .accounts({
+      globalState: gs,
+      draw: drawPda,
+      randomnessAccountData: randomnessKp.publicKey,
+    })
+    .preInstructions([closeIx])
+    .rpc();
+
+  await confirmTx(conn, sigClose);
+
+  const dClosed = await program.account.draw.fetch(drawPda);
+  log("OK", "Draw closed");
+  log("RESULT", `Numbers: ${String(pick(dClosed, "resultNumbers", "result_numbers"))}`);
+  log("RESULT", `Crypto:  ${String(pick(dClosed, "resultCrypto", "result_crypto"))}`);
+  console.log("");
+
+  step(5, "DISCOVER + SETTLE ALL TICKETS");
+
+  const tickets = await getTicketsForDraw(program, drawPda);
+  log("INFO", `Tickets found in this draw: ${tickets.length}`);
+
+  if (tickets.length > 0) {
+    let offset = 0;
+
+    while (offset < tickets.length) {
+      const chunk = tickets.slice(offset, offset + SETTLE_BATCH);
+
+      const remainingAccounts = chunk.map((t: any) => ({
+        pubkey: t.publicKey,
+        isWritable: true,
+        isSigner: false,
+      }));
+
+      const sigSettle = await program.methods
+        .settleTickets(remainingAccounts.length)
+        .accounts({
+          draw: drawPda,
+        })
+        .remainingAccounts(remainingAccounts)
+        .rpc();
+
+      await confirmTx(conn, sigSettle);
+
+      offset += chunk.length;
+      log("SETTLE", `${offset}/${tickets.length}`);
+      await sleep(250);
+    }
+  } else {
+    log("INFO", "No tickets found for settlement");
+  }
+
+  const dSettled = await program.account.draw.fetch(drawPda);
+  log("WINNERS", String(pick(dSettled, "winnerCounts", "winner_counts")));
+  console.log("");
+
+  step(6, "FINALIZE PAYOUTS");
+
+  const sigFinalize = await program.methods
+    .finalizePayouts()
+    .accounts({
+      globalState: gs,
+      draw: drawPda,
+    })
+    .rpc();
+
+  await confirmTx(conn, sigFinalize);
+
+  const dFinalized = await program.account.draw.fetch(drawPda);
+  log("OK", "Payouts finalized");
+  log("PRIZES", String(pick(dFinalized, "prizePerTier", "prize_per_tier")));
+  log(
+    "MONTHLY",
+    String(pick(dFinalized, "monthlyRolloverContribution", "monthly_rollover_contribution") || 0)
+  );
+  console.log("");
+
+  step(7, "PAY WINNERS");
+
+  const refreshedTickets = await getTicketsForDraw(program, drawPda);
+  const winners = refreshedTickets.filter((row: any) => {
+    const acc = row.account || {};
+    const tier = Number(acc.tier);
+    const paid = Boolean(acc.paid);
+    return tier >= 0 && tier <= 9 && !paid;
+  });
+
+  log("INFO", `Winner tickets pending payment: ${winners.length}`);
+
+  let paidCount = 0;
+
+  for (let i = 0; i < winners.length; i++) {
+    const wt = winners[i];
+    const acc = wt.account || {};
+    const owner = acc.owner || acc.user || null;
+    if (!owner) continue;
+
+    const userAta = getAssociatedTokenAddressSync(mint, owner, false, tp);
+
+    try {
+      const sigPay = await program.methods
+        .payWinnersBatch(1)
+        .accounts({
+          draw: drawPda,
+          ticket: wt.publicKey,
+          globalState: gs,
+          prizeVault: pv,
+          userTokenAccount: userAta,
+          vaultAuthority: va,
+          tokenProgram: tp,
+        })
+        .rpc();
+
+      await confirmTx(conn, sigPay);
+      paidCount++;
+      log("PAY", `${paidCount}/${winners.length}`);
+    } catch (e: any) {
+      log("PAY-ERR", e?.message || String(e));
+    }
+
+    await sleep(250);
+  }
+
+  if (winners.length === 0 && tickets.length > 0) {
+    const first = refreshedTickets[0];
+    const acc = first?.account || {};
+    const owner = acc.owner || acc.user || null;
+
+    if (owner) {
+      const userAta = getAssociatedTokenAddressSync(mint, owner, false, tp);
+      try {
+        const sigFast = await program.methods
+          .payWinnersBatch(1)
+          .accounts({
+            draw: drawPda,
+            ticket: first.publicKey,
+            globalState: gs,
+            prizeVault: pv,
+            userTokenAccount: userAta,
+            vaultAuthority: va,
+            tokenProgram: tp,
+          })
+          .rpc();
+
+        await confirmTx(conn, sigFast);
+        log("OK", "Fast-path executed for zero-winner completion");
+      } catch (_e) {}
+    }
+  }
+
+  console.log("");
+
+  const dEnd = await program.account.draw.fetch(drawPda);
+  const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
+
+  hr();
+  console.log(`  DRAW #${nextDrawId.toString()} — FINAL REPORT`);
+  hr();
+  console.log("");
+  console.log(`  draw_id:              ${String(dEnd.id)}`);
+  console.log(`  status:               ${String(dEnd.status)}`);
+  console.log(`  result_numbers:       ${String(pick(dEnd, "resultNumbers", "result_numbers"))}`);
+  console.log(`  result_crypto:        ${String(pick(dEnd, "resultCrypto", "result_crypto"))}`);
+  console.log(`  tickets_sold:         ${String(pick(dEnd, "ticketsSold", "tickets_sold"))}`);
+  console.log(`  tickets_processed:    ${String(pick(dEnd, "ticketsProcessed", "tickets_processed"))}`);
+  console.log(`  winner_counts:        ${String(pick(dEnd, "winnerCounts", "winner_counts"))}`);
+  console.log(`  prize_per_tier:       ${String(pick(dEnd, "prizePerTier", "prize_per_tier"))}`);
+  console.log(`  tickets_paid:         ${String(pick(dEnd, "ticketsPaid", "tickets_paid"))}`);
+  console.log(`  is_paid:              ${String(pick(dEnd, "isPaid", "is_paid"))}`);
+  console.log(
+    `  monthly_rollover:     ${String(
+      pick(dEnd, "monthlyRolloverContribution", "monthly_rollover_contribution") || 0
+    )}`
+  );
+  console.log("");
+  console.log(`  Explorer: https://explorer.solana.com/address/${drawPda.toBase58()}?cluster=devnet`);
+  console.log(`  Time:                 ${elapsed}s`);
+  console.log("");
+  hr();
+  console.log("  MegaByt demo flow complete.");
+  hr();
+  console.log("");
+}
+
+main().catch((e: any) => {
+  console.error("");
+  console.error("ERROR:", e?.message || e);
+
+  if (e?.logs) {
+    console.error("ERROR_LOGS:");
+    for (const l of e.logs) console.error("  " + l);
+  }
+
+  if (e?.stack) {
+    console.error("ERROR_STACK:");
+    console.error(String(e.stack));
+  }
+
+  process.exit(1);
+});
+

@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-04-11T20:12:03.182Z",
+  "drawId": 5,
+  "drawPda": "AJEXS89UY3nTub1mhuRDknSmuQ8rwJ73zyefUsLsmDUu",
+  "programId": "2sq5GDjs2ESDEK2Jpec7je2aAnVJ2w7uZgM1Qh5GgpmS",
+  "wallet": "AueuFaAd9RYPdnc3aB3RmWPzni3XZiYUqoS3a1mgcvzb",
+  "mint": "HkahNWz3FB53wYNKgZaEYrrC3K9DbQoWuydKM2HPqiUd",
+  "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  "prizeVault": "8sEKCpLjLLZzRjwKXfn5ubYhuJu2jdYFa5ngqbTyw7mz",
+  "globalState": "AUJCkNYLRPLxBzrPZAjp64i22kcSFNh4aNJ5uiNNTiDv",
+  "vaultAuthority": "5Xb9XSLMwCpDVmiC91H7k7gTeGbfSgm9DjRkVaBnmxxF",
+  "status": 3,
+  "resultNumbers": [
+    1,
+    28,
+    29,
+    41,
+    51,
+    68
+  ],
+  "resultCrypto": 1,
+  "ticketsSold": "08",
+  "ticketsProcessed": "08",
+  "settlementComplete": true,
+  "isPaid": false,
+  "winnerCounts": [
+    "00",
+    "00",
+    "00",
+    "00",
+    "00",
+    "00",
+    "00",
+    "00",
+    "00",
+    "00"
+  ],
+  "prizePerTier": [
+    "00",
+    "00",
+    "00",
+    "00",
+    "00",
+    "00",
+    "00",
+    "00",
+    "00",
+    "00"
+  ]
+}

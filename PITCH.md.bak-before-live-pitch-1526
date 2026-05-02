@@ -1,0 +1,144 @@
+# MegaByt Protocol — Hackathon Pitch Kit
+
+---
+
+## 🎯 HOOK (ONE-LINER)
+
+**Most protocols ask you to trust them.  
+MegaByt removes that requirement.**
+
+---
+
+## 🚀 30-SECOND PITCH
+
+> Most protocols ask you to trust them.  
+> We removed that requirement.
+>
+> MegaByt is a fully on-chain value redistribution protocol built on Solana.
+>
+> Every step — ticket creation, randomness, settlement, and payouts — is executed and verified on-chain.
+>
+> There is no custody. No black box. No human intervention.
+>
+> Funds are managed by program-controlled vaults.
+>
+> Outcomes are defined by verifiable randomness.
+>
+> Around 75% of all value flows back to participants through a mathematically enforced cascade.
+>
+> This isn’t luck.  
+> This is verifiable math.
+
+---
+
+## ⚡ ULTRA-SHORT PITCH
+
+**Fully on-chain. No custody. No trust. Just verifiable math.**
+
+---
+
+## 🔬 TECHNICAL EXPLANATION
+
+- Tickets are deterministic PDAs derived from:
+  - draw
+  - user
+  - ticket index  
+  → enforced uniqueness at the runtime level
+
+- Randomness is generated via VRF  
+  → outcome cannot be predicted or manipulated
+
+- Settlement uses batching  
+  → scalable within Solana compute limits
+
+- Payouts come directly from program-controlled vaults  
+  → no custody risk
+
+- All state transitions are enforced on-chain  
+  → no manual intervention possible
+
+---
+
+## 🔐 TRUSTLESS CUSTODY (LIVE PROOF)
+
+During the demo:
+
+> "This address is the Prize Vault PDA."
+
+> "It does not have a private key."
+
+> "It is controlled exclusively by the program logic."
+
+> "Not even the developer can withdraw funds manually."
+
+---
+
+## 🧨 DIFFERENTIATION (MOAT)
+
+MegaByt is not a frontend — it's a protocol.
+
+Core advantages:
+
+- deterministic ownership via PDAs
+- verifiable randomness (VRF)
+- cascading distribution logic
+- program-controlled custody
+
+**This is a financial primitive, not an app.**
+
+---
+
+## 💰 TOKENOMICS (SIMPLIFIED)
+
+| Destination | % | Model |
+|---|---|---|
+| Daily Prize Pool | ~60% | On-chain |
+| Monthly Jackpot | ~15% | On-chain |
+| Security Reserve | ~10% | On-chain |
+| Referral Pool | ~5% | On-chain |
+| Operations | ~10% | On-chain |
+
+👉 ~75%+ redistributed to participants
+
+---
+
+## 🎬 DEMO PHRASES
+
+When buying:
+> "Each ticket is a deterministic account — duplication is impossible."
+
+When showing transaction:
+> "This is the source of truth — not us."
+
+When explaining randomness:
+> "Even we cannot influence the outcome."
+
+When explaining custody:
+> "Funds are controlled by the program, not by humans."
+
+Closing:
+> "Everything you saw is verifiable."
+
+---
+
+## 🧪 LIVE PROOF (DEVNET)
+
+- Real transaction via frontend + Phantom
+- Ticket created as PDA on-chain
+- Prize pool updates live
+- Full pipeline executed:
+  - open_draw
+  - buy_ticket
+  - request_randomness
+  - close_draw
+  - settle_tickets
+  - finalize_payouts
+  - pay_winners_batch
+
+---
+
+## 🎯 FINAL LINE
+
+**This is not luck.  
+This is verifiable math.**
+

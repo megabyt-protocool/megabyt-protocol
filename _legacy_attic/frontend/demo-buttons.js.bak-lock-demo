@@ -1,0 +1,213 @@
+(function () {
+  "use strict";
+
+  function $(id) {
+    return document.getElementById(id);
+  }
+
+  function now() {
+    return new Date().toLocaleTimeString();
+  }
+
+  function log(msg) {
+    const box = $("demoStepLog");
+    if (!box) return;
+
+    const d = document.createElement("div");
+    d.textContent = "[" + now() + "] " + msg;
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function cmd(base) {
+    return [
+      "cd ~/projects/megabyt && \\",
+      "ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \\",
+      "ANCHOR_WALLET=~/.config/solana/id.json \\",
+      base,
+    ].join("\n");
+  }
+
+  async function copy(text, label) {
+    const box = $("cmdBox");
+    if (box) box.value = text;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      log((label || 'Comando') + ' copied');
+    } catch {
+      log("Copie manualmente");
+    }
+  }
+
+  function build() {
+    if ($("demoPanel")) return;
+
+    const html = `
+    <div class="card" id="demoPanel" style="margin-bottom:20px;">
+      <div class="ct">⚙️ DEMO CONTROLLER</div>
+
+      <div style="
+        display:flex;
+        gap:8px;
+        margin-top:12px;
+        flex-wrap:nowrap;
+      ">
+        
+        <button class="w-btn" style="background:#6c5ce7;color:white;font-size:11px;padding:8px;" onclick="MegaBytDemo.run()">
+          ▶ FULL DEMO
+        </button>
+
+        <button class="w-btn" style="background:#00b894;color:white;font-size:11px;padding:8px;" onclick="MegaBytDemo.refresh()">
+          🔄 REFRESH
+        </button>
+
+        <button class="w-btn" onclick="MegaBytDemo.balance()" style="background:#fdcb6e;color:black;font-size:11px;padding:8px;">
+          💰 DEV SOL
+        </button>
+
+        <button class="w-btn" onclick="MegaBytDemo.explorer()" style="background:#0984e3;color:white;font-size:11px;padding:8px;">
+          🔎 ON-CHAIN PROOF
+        </button>
+
+        <button class="w-btn" onclick="MegaBytDemo.drawTx()" style="background:#e17055;color:white;font-size:11px;padding:8px;">
+          🧾 DRAW EXECUTION TX
+        </button>
+
+      </div>
+
+      <textarea id="cmdBox" style="width:100%;margin-top:12px;height:90px;background:#06060e;color:#44ccff;border:1px solid #1a1a3a;border-radius:10px;padding:10px;font-family:monospace;font-size:10px;"></textarea>
+
+      <div id="demoStepLog" style="font-size:10px;margin-top:10px;color:#00e6b8;"></div>
+    </div>
+    `;
+
+    const stats = document.querySelector(".stats");
+    if (stats) stats.insertAdjacentHTML("afterend", html);
+
+    log("Demo pronto");
+  }
+
+  window.MegaBytDemo = {
+    run: async () => {
+      log("FULL DEMO started: 25 tickets / 90s / auto payout");
+
+      const box = document.getElementById("cmdBox");
+      if (box) box.value = "Running full demo... wait until it finishes.";
+
+      try {
+        const r = await fetch("http://localhost:3001/run-demo");
+        const txt = await r.text();
+
+        if (!r.ok) {
+          log("FULL DEMO failed");
+          if (box) box.value = txt;
+          return;
+        }
+
+        log("FULL DEMO completed");
+        if (box) box.value = txt;
+
+        if (window.forceLoadOnChainData) {
+          await window.forceLoadOnChainData();
+        } else {
+          location.reload();
+        }
+      } catch (e) {
+        log("FULL DEMO server offline: " + e.message);
+        if (box) {
+          box.value = cmd("TICKETS=25 \\\nMULTI=5 \\\nDURATION=90 \\\nnpx ts-node --transpile-only scripts/flow-master-final.ts");
+        }
+      }
+    },
+
+    refresh: () => window.forceLoadOnChainData ? window.forceLoadOnChainData() : location.reload(),
+
+    balance: async () => {
+      const addr = "AueuFaAd9RYPdnc3aB3RmWPzni3XZiYUqoS3a1mgcvzb";
+      const connection = new solanaWeb3.Connection("https://api.devnet.solana.com", "confirmed");
+      const lamports = await connection.getBalance(new solanaWeb3.PublicKey(addr));
+      const sol = lamports / 1000000000;
+
+      const box = document.getElementById("cmdBox");
+      if (box) {
+        box.value = "Dev Balance (SOL)\nCarteira: " + addr + "\nSaldo: " + sol.toFixed(6) + " SOL";
+      }
+
+      log("Dev Balance (SOL): " + sol.toFixed(6) + " SOL");
+    },
+
+    explorer: () => {
+      const el = document.getElementById("eL");
+      if (!el) return;
+      copy(el.href, "Explorer");
+    },
+
+    drawTx: async () => {
+      const el = document.getElementById("eL");
+      if (!el || !el.href) {
+        log("Draw não carregada");
+        return;
+      }
+
+      const m = el.href.match(/address\/([^?]+)/);
+      if (!m) {
+        log("Draw PDA não encontrada");
+        return;
+      }
+
+      const drawPda = m[1];
+      const connection = new solanaWeb3.Connection("https://api.devnet.solana.com", "confirmed");
+      const signatures = await connection.getSignaturesForAddress(
+        new solanaWeb3.PublicKey(drawPda),
+        { limit: 30 }
+      );
+
+      let found = null;
+
+      for (const item of signatures) {
+        try {
+          const tx = await connection.getTransaction(item.signature, {
+            commitment: "confirmed",
+            maxSupportedTransactionVersion: 0,
+          });
+
+          const logs = tx && tx.meta && tx.meta.logMessages ? tx.meta.logMessages.join("\n") : "";
+
+          if (
+            logs.includes("Instruction: CloseDraw") ||
+            logs.includes("Instruction: Close Draw") ||
+            logs.includes("close_draw") ||
+            logs.includes("CloseDraw")
+          ) {
+            found = item.signature;
+            break;
+          }
+        } catch (e) {}
+      }
+
+      if (!found && signatures.length > 0) {
+        found = signatures[0].signature;
+        log("TX closeDraw não identificada; mostrando TX mais recente da draw");
+      }
+
+      if (!found) {
+        log("Nenhuma TX encontrada para esta draw");
+        return;
+      }
+
+      const url = "https://solscan.io/tx/" + found + "?cluster=devnet";
+      const box = document.getElementById("cmdBox");
+      if (box) box.value = "DRAW EXECUTION TX\n" + url;
+
+      try {
+        await navigator.clipboard.writeText(url);
+      } catch (e) {}
+
+      log("Draw TX copied");
+      window.open(url, "_blank");
+    }
+  };
+
+  document.addEventListener("DOMContentLoaded", build);
+})();

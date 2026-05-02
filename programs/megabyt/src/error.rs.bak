@@ -1,0 +1,92 @@
+use anchor_lang::prelude::*;
+
+#[error_code]
+pub enum MegabytError {
+    #[msg("Unauthorized")]
+    Unauthorized,
+
+    #[msg("Invalid admin")]
+    InvalidAdmin,
+
+    #[msg("Invalid treasury")]
+    InvalidTreasury,
+
+    #[msg("Math overflow")]
+    MathOverflow,
+
+    #[msg("Arithmetic overflow")]
+    ArithmeticOverflow,
+
+    #[msg("Draw is still open")]
+    DrawStillOpen,
+
+    #[msg("Draw already closed")]
+    DrawAlreadyClosed,
+
+    #[msg("Draw closed")]
+    DrawClosed,
+
+    #[msg("Draw not ready for payout")]
+    DrawNotReady,
+
+    #[msg("Draw has not reached end time yet")]
+    DrawNotEnded,
+
+    #[msg("Invalid draw state")]
+    InvalidDrawState,
+
+    #[msg("Invalid duration")]
+    InvalidDuration,
+
+    #[msg("No tickets sold")]
+    NoTicketsSold,
+
+    #[msg("Invalid number")]
+    InvalidNumber,
+
+    #[msg("Invalid numbers")]
+    InvalidNumbers,
+
+    #[msg("Duplicate number")]
+    DuplicateNumber,
+
+    #[msg("Invalid crypto number")]
+    InvalidCryptoNumber,
+
+    #[msg("Invalid ticket")]
+    InvalidTicket,
+
+    #[msg("Ticket not settled")]
+    TicketNotSettled,
+
+    #[msg("Ticket already settled")]
+    TicketAlreadySettled,
+
+    #[msg("Ticket already paid")]
+    TicketAlreadyPaid,
+
+    #[msg("Settlement not complete")]
+    SettlementNotComplete,
+
+    #[msg("Settlement already finalized")]
+    SettlementAlreadyFinalized,
+
+    #[msg("Invalid token owner")]
+    InvalidTokenOwner,
+
+    #[msg("Invalid token mint")]
+    InvalidMint,
+
+    #[msg("Invalid vault authority")]
+    InvalidVaultAuthority,
+
+    #[msg("Invalid prize vault")]
+    InvalidPrizeVault,
+
+    #[msg("Invalid tier")]
+    InvalidTier,
+
+    #[msg("Randomness not fulfilled yet")]
+    RandomnessNotReady,
+}
+

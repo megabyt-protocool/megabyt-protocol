@@ -1,0 +1,49 @@
+const http = require("http");
+const { exec } = require("child_process");
+
+const PORT = 3001;
+
+function send(res, status, body) {
+  res.writeHead(status, {
+    "Content-Type": "text/plain; charset=utf-8",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  });
+  res.end(body);
+}
+
+const server = http.createServer((req, res) => {
+  if (req.method === "OPTIONS") {
+    return send(res, 200, "ok");
+  }
+
+  if (req.url !== "/run-demo") {
+    return send(res, 200, "MegaByt demo server ready");
+  }
+
+  const cmd = `
+cd ~/projects/megabyt && \\
+ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \\
+ANCHOR_WALLET=~/.config/solana/id.json \\
+TICKETS=25 \\
+MULTI=5 \\
+DURATION=90 \\
+npx ts-node --transpile-only scripts/flow-master-final.ts
+`;
+
+  exec(cmd, { shell: "/bin/bash", maxBuffer: 1024 * 1024 * 50 }, (err, stdout, stderr) => {
+    const output = stdout + "\n" + stderr;
+
+    if (err) {
+      return send(res, 500, output + "\nERROR: " + err.message);
+    }
+
+    return send(res, 200, output);
+  });
+});
+
+server.listen(PORT, "0.0.0.0", () => {
+  console.log("MegaByt demo server running on http://0.0.0.0:" + PORT);
+});
+
