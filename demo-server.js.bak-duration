@@ -32,7 +32,7 @@ const server = http.createServer((req, res) => {
 cd ~/projects/megabyt && \\
 ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \\
 ANCHOR_WALLET=~/.config/solana/id.json \\
-DURATION=110 \\
+DURATION=90 \\
 npx ts-node --transpile-only scripts/open-draw.ts
 `;
     return run(cmd, res);
@@ -58,7 +58,7 @@ ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \\
 ANCHOR_WALLET=~/.config/solana/id.json \\
 TICKETS=25 \\
 MULTI=5 \\
-DURATION=110 \\
+DURATION=90 \\
 npx ts-node --transpile-only scripts/flow-master-final.ts
 `;
     return run(cmd, res);

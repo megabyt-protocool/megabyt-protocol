@@ -17,12 +17,9 @@ pub fn handler(ctx: Context<ResetDrawSettlement>) -> Result<()> {
         MegabytError::Unauthorized
     );
 
-    // Only allow reset on draws that are in status 2 or 3
-    // (already "settled" but with corrupted data)
-    require!(
-        draw.status == 2 || draw.status == 3,
-        MegabytError::DrawNotReady
-    );
+    // Only allow reset on draws with status == 2 (settled but not yet finalized).
+    // Status 3 means finalize_payouts already ran — resetting would allow double-payment.
+    require!(draw.status == 2, MegabytError::DrawNotReady);
 
     msg!("RESET SETTLEMENT: draw_id={}", draw.id);
     msg!("BEFORE: tickets_processed={}, winner_counts={:?}, status={}",

@@ -14,6 +14,15 @@ pub fn handler(ctx: Context<RequestRandomness>) -> Result<()> {
     // Anti-replay: bloquear se ja foi solicitado
     require!(!draw.randomness_requested, MegabytError::InvalidDrawState);
 
+    // =========================================================
+    //  FECHAR VENDAS — impede front-running via VRF leak
+    //
+    //  A partir daqui, buy_ticket falha porque is_open = false.
+    //  close_draw e fulfill_randomness continuam funcionando
+    //  porque validam !is_closed + randomness_requested.
+    // =========================================================
+    draw.is_open = false;
+
     // Registrar request
     draw.randomness_requested = true;
     draw.randomness_fulfilled = false;

@@ -19,7 +19,7 @@ pub struct OpenDraw<'info> {
     #[account(
         init,
         payer = admin,
-        space = Draw::LEN,
+        space = Draw::len(global_state.numbers_count),
         seeds = [
             b"draw-v3",
             (global_state.current_draw_id + 1).to_le_bytes().as_ref()
@@ -61,10 +61,10 @@ pub fn handler(ctx: Context<OpenDraw>, duration: i64) -> Result<()> {
     draw_state.winner = Pubkey::default();
 
     draw_state.crypto_number = 0;
-    draw_state.result_numbers = [0; 6];
+    draw_state.result_numbers = vec![0u8; global_state.numbers_count as usize];
     draw_state.result_crypto = 0;
 
-    draw_state.winning_numbers = [0; 6];
+    draw_state.winning_numbers = vec![0u8; global_state.numbers_count as usize];
     draw_state.winning_crypto = 0;
 
     draw_state.randomness_account = Pubkey::default();
@@ -82,6 +82,7 @@ pub fn handler(ctx: Context<OpenDraw>, duration: i64) -> Result<()> {
 
     draw_state.status = 0;
     draw_state.monthly_rollover_contribution = 0;
+    draw_state.numbers_count = global_state.numbers_count;
 
     global_state.current_draw_id = next_draw_id;
     global_state.total_draws = global_state

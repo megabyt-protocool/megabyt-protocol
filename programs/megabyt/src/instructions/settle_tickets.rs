@@ -12,7 +12,7 @@ pub fn handler<'info>(
 
     require!(draw.status == 1 || draw.status == 2, MegabytError::DrawNotReady);
     require!(draw.is_closed, MegabytError::DrawNotReady);
-    require!(draw.result_numbers[0] != 0, MegabytError::DrawNotReady);
+    require!(!draw.result_numbers.is_empty() && draw.result_numbers[0] != 0, MegabytError::DrawNotReady);
 
     // Guard: settlement already complete
     if draw.settlement_complete {
@@ -107,7 +107,7 @@ pub fn handler<'info>(
     Ok(())
 }
 
-fn count_hits(ticket_numbers: &[u8; 6], result_numbers: &[u8; 6]) -> u8 {
+fn count_hits(ticket_numbers: &[u8], result_numbers: &[u8]) -> u8 {
     let mut hits = 0u8;
 
     for n in ticket_numbers.iter() {

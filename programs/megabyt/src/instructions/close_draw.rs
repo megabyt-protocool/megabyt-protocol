@@ -42,7 +42,8 @@ pub fn handler(ctx: Context<CloseDraw>) -> Result<()> {
     //  VALIDACOES DE SEGURANCA
     // =========================================================
 
-    require!(draw.is_open, MegabytError::DrawClosed);
+    // is_open não é mais exigido: request_randomness fecha as vendas (is_open=false)
+    // para prevenir front-running. A proteção contra double-close está em !is_closed.
     require!(!draw.is_closed, MegabytError::DrawAlreadyClosed);
     require!(draw.tickets_sold > 0, MegabytError::NoTicketsSold);
     require!(draw.randomness_requested, MegabytError::InvalidDrawState);
@@ -103,12 +104,12 @@ pub fn handler(ctx: Context<CloseDraw>) -> Result<()> {
     //  GERAR RESULTADO
     // =========================================================
 
-    let numbers = generate_unique_numbers(&seed);
-    let crypto = (seed[6] % 10) + 1;
+    let numbers = generate_unique_numbers(&seed, draw.numbers_count);
+    let crypto = unbiased_byte(&seed, 10, 0) + 1; // 1..=10 sem modulo bias
 
-    draw.result_numbers = numbers;
+    draw.result_numbers = numbers.clone();
     draw.result_crypto = crypto;
-    draw.winning_numbers = numbers;
+    draw.winning_numbers = numbers.clone();
     draw.winning_crypto = crypto;
 
     // =========================================================
@@ -257,7 +258,7 @@ fn get_randomness_with_tolerance(
         return Ok(value);
     }
 
-    let max_lookback: u64 = 10_000;
+    let max_lookback: u64 = 200;
 
     for i in 1..=max_lookback {
         let slot_try = current_slot.saturating_sub(i);
@@ -272,35 +273,96 @@ fn get_randomness_with_tolerance(
     err!(MegabytError::InvalidDrawState)
 }
 
-fn generate_unique_numbers(seed: &[u8; 32]) -> [u8; 6] {
+/// Expande o seed de 32 bytes em um buffer de 128 bytes usando Keccak256.
+///
+/// Cada bloco é hash(seed || counter) para gerar entropia adicional,
+/// eliminando modulo bias por rejection sampling sem risco de esgotar bytes.
+fn hash_expand(seed: &[u8; 32]) -> [u8; 128] {
+    let mut buf = [0u8; 128];
+
+    // Blocos 0..3: hash(seed || [counter]) → 4 × 32 = 128 bytes
+    for i in 0u8..4 {
+        let h = solana_program::keccak::hashv(&[seed as &[u8], &[i] as &[u8]]);
+        let start = (i as usize) * 32;
+        buf[start..start + 32].copy_from_slice(&h.0);
+    }
+
+    buf
+}
+
+/// Rejection sampling: retorna um byte uniforme em `0..max`.
+///
+/// Rejeita valores >= threshold para eliminar modulo bias.
+/// `domain` seleciona qual região do buffer expandido ler primeiro.
+fn unbiased_byte(seed: &[u8; 32], max: u8, domain: u8) -> u8 {
+    let buf = hash_expand(seed);
+    let start = (domain as usize) * 32;
+    let threshold = 255 - (255 % max); // rejection threshold
+
+    // Tenta os 32 bytes do bloco `domain`
+    for j in 0..32 {
+        let val = buf[start + j];
+        if val < threshold {
+            return val % max;
+        }
+    }
+
+    // Fallback: varre o resto do buffer (extremamente improvável de chegar aqui)
+    for j in 0..128 {
+        let val = buf[j];
+        if val < threshold {
+            return val % max;
+        }
+    }
+
+    // Praticamente impossível: todos os 128 bytes acima do threshold.
+    // Probabilidade ≈ (max/256)^128 ≈ 0 para qualquer max > 1.
+    // Retorna valor determinístico como último recurso.
+    0
+}
+
+/// Gera quantidade dinâmica de números únicos em 1..=72 usando Fisher-Yates parcial com rejection sampling.
+///
+/// O seed VRF de 32 bytes é expandido via Keccak256 para 128 bytes,
+/// eliminando qualquer modulo bias na seleção de índices do pool.
+fn generate_unique_numbers(seed: &[u8; 32], count: u8) -> Vec<u8> {
     let mut pool = [0u8; 72];
     for i in 0..72 {
         pool[i] = (i as u8) + 1;
     }
 
-    let mut result = [0u8; 6];
-    let mut available = 72;
+    let buf = hash_expand(seed);
 
-    for i in 0..6 {
-        let idx = (seed[i % 32] as usize) % available;
-        result[i] = pool[idx];
+    let mut result = Vec::with_capacity(count as usize);
+    let mut available: usize = 72;
+    let mut byte_idx: usize = 0;
 
-        pool[idx] = pool[available - 1];
-        available -= 1;
-    }
+    for _ in 0..count {
+        // Rejection sampling: rejeita bytes que causariam bias
+        let threshold = 256 - (256 % available);
 
-    sort_numbers(&mut result);
-    result
-}
+        loop {
+            let val = if byte_idx < 128 {
+                let v = buf[byte_idx];
+                byte_idx += 1;
+                v
+            } else {
+                // Fallback: expande mais entropia se esgotar o buffer
+                let h = solana_program::keccak::hashv(&[seed as &[u8], &byte_idx.to_le_bytes() as &[u8]]);
+                byte_idx += 1;
+                h.0[byte_idx % 32]
+            };
 
-fn sort_numbers(numbers: &mut [u8; 6]) {
-    for i in 0..6 {
-        for j in i + 1..6 {
-            if numbers[j] < numbers[i] {
-                let temp = numbers[i];
-                numbers[i] = numbers[j];
-                numbers[j] = temp;
+            if (val as usize) < threshold {
+                let idx = (val as usize) % available;
+                result.push(pool[idx]);
+                pool[idx] = pool[available - 1];
+                available -= 1;
+                break;
             }
         }
     }
+
+    result.sort();
+    result
 }

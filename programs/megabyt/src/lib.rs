@@ -4,6 +4,7 @@ pub mod constants;
 pub mod error;
 pub mod instructions;
 pub mod state;
+pub mod validation;
 
 use instructions::*;
 
@@ -39,7 +40,7 @@ pub mod megabyt {
 
     pub fn buy_ticket(
         ctx: Context<BuyTicket>,
-        numbers: [u8; 6],
+        numbers: Vec<u8>,
         crypto: u8,
     ) -> Result<()> {
         instructions::buy_ticket::handler(ctx, numbers, crypto)
@@ -47,7 +48,7 @@ pub mod megabyt {
 
     pub fn buy_ticket_with_referral(
         ctx: Context<BuyTicketWithReferral>,
-        numbers: [u8; 6],
+        numbers: Vec<u8>,
         crypto: u8,
     ) -> Result<()> {
         instructions::buy_ticket_with_referral::handler(ctx, numbers, crypto)
@@ -104,7 +105,7 @@ pub mod megabyt {
 
     pub fn claim_bonus_ticket(
         ctx: Context<ClaimBonusTicket>,
-        numbers: [u8; 6],
+        numbers: Vec<u8>,
         crypto: u8,
     ) -> Result<()> {
         instructions::claim_bonus_ticket::handler(ctx, numbers, crypto)

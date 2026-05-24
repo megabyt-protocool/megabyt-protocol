@@ -2,9 +2,11 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
 use crate::error::MegabytError;
-use crate::state::{Draw, GlobalState, Ticket, UserState};
+use crate::state::{Draw, GlobalState, Ticket, UserDrawState, UserState};
+use crate::validation::{validate_numbers, validate_crypto};
 
 #[derive(Accounts)]
+#[instruction(numbers: Vec<u8>, crypto: u8)]
 pub struct BuyTicketWithReferral<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
@@ -19,11 +21,27 @@ pub struct BuyTicketWithReferral<'info> {
     #[account(mut)]
     pub draw_state: Box<Account<'info, Draw>>,
 
+    /// User's draw state — tracks ticket count per user per draw.
+    /// Created on first buy, reused on subsequent buys.
+    #[account(
+        init_if_needed,
+        payer = user,
+        space = UserDrawState::LEN,
+        seeds = [b"user-draw", draw_state.key().as_ref(), user.key().as_ref()],
+        bump
+    )]
+    pub user_draw_state: Box<Account<'info, UserDrawState>>,
+
     #[account(
         init,
         payer = user,
-        space = Ticket::LEN,
-        seeds = [b"ticket", draw_state.key().as_ref(), user.key().as_ref()],
+        space = Ticket::len(&Pubkey::default(), &Pubkey::default(), global_state.numbers_count),
+        seeds = [
+            b"ticket",
+            draw_state.key().as_ref(),
+            user.key().as_ref(),
+            &user_draw_state.tickets_bought.to_le_bytes()
+        ],
         bump
     )]
     pub ticket: Box<Account<'info, Ticket>>,
@@ -68,12 +86,13 @@ pub struct BuyTicketWithReferral<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler(ctx: Context<BuyTicketWithReferral>, numbers: [u8; 6], crypto: u8) -> Result<()> {
+pub fn handler(ctx: Context<BuyTicketWithReferral>, numbers: Vec<u8>, crypto: u8) -> Result<()> {
     let user = &ctx.accounts.user;
     let global_state = &mut ctx.accounts.global_state;
     let draw_state = &mut ctx.accounts.draw_state;
     let ticket = &mut ctx.accounts.ticket;
     let user_state = &mut ctx.accounts.user_state;
+    let user_draw_state = &mut ctx.accounts.user_draw_state;
     let referrer_state = &mut ctx.accounts.referrer_state;
     let clock = Clock::get()?;
 
@@ -82,13 +101,20 @@ pub fn handler(ctx: Context<BuyTicketWithReferral>, numbers: [u8; 6], crypto: u8
     require!(!draw_state.is_closed, MegabytError::DrawAlreadyClosed);
     require!(clock.unix_timestamp <= draw_state.end_time, MegabytError::DrawStillOpen);
 
-    validate_numbers(&numbers)?;
-    validate_crypto(crypto)?;
+    validate_numbers(&numbers, global_state.numbers_count)?;
+    validate_crypto(crypto, global_state.crypto_count)?;
 
     require!(
         ctx.accounts.user_token_account.amount >= global_state.ticket_price,
         MegabytError::InvalidTicket
     );
+
+    // Initialize user_draw_state if first ticket in this draw
+    if user_draw_state.tickets_bought == 0 {
+        user_draw_state.user = user.key();
+        user_draw_state.draw = draw_state.key();
+        user_draw_state.bump = ctx.bumps.user_draw_state;
+    }
 
     // === REFERRAL VALIDATION ===
     require!(user_state.has_referrer, MegabytError::InvalidReferrer);
@@ -175,6 +201,8 @@ pub fn handler(ctx: Context<BuyTicketWithReferral>, numbers: [u8; 6], crypto: u8
     }
 
     // === CREATE TICKET (same as buy_ticket) ===
+    let current_index = user_draw_state.tickets_bought;
+
     ticket.owner = user.key();
     ticket.draw = draw_state.key();
     ticket.draw_id = draw_state.id;
@@ -187,8 +215,18 @@ pub fn handler(ctx: Context<BuyTicketWithReferral>, numbers: [u8; 6], crypto: u8
     ticket.tier = 255;
     ticket.prize_amount = 0;
     ticket.bump = ctx.bumps.ticket;
+    ticket.ticket_index = current_index;
 
-    // === UPDATE DRAW COUNTERS (same as buy_ticket) ===
+    // Increment ticket counter
+    user_draw_state.tickets_bought = user_draw_state
+        .tickets_bought
+        .checked_add(1)
+        .ok_or(MegabytError::ArithmeticOverflow)?;
+
+    // === UPDATE DRAW COUNTERS ===
+    // IMPORTANTE: draw.total_collected deve refletir apenas o que foi para prize_vault (95%)
+    // porque close_draw usa esse valor para redistribuir tokenomics.
+    // O referral (5%) já foi pago diretamente ao referrer e não deve ser redistribuído.
     draw_state.total_tickets = draw_state
         .total_tickets
         .checked_add(1)
@@ -199,41 +237,49 @@ pub fn handler(ctx: Context<BuyTicketWithReferral>, numbers: [u8; 6], crypto: u8
         .checked_add(1)
         .ok_or(MegabytError::ArithmeticOverflow)?;
 
+    // total_amount = receita bruta (100%)
     draw_state.total_amount = draw_state
         .total_amount
         .checked_add(global_state.ticket_price)
         .ok_or(MegabytError::ArithmeticOverflow)?;
 
+    // total_collected = apenas o que foi para prize_vault (95%)
     draw_state.total_collected = draw_state
         .total_collected
-        .checked_add(global_state.ticket_price)
+        .checked_add(prize_amount)
         .ok_or(MegabytError::ArithmeticOverflow)?;
 
+    // total_pool e prize_pool = apenas o que está no prize_vault (95%)
     draw_state.total_pool = draw_state
         .total_pool
-        .checked_add(global_state.ticket_price)
+        .checked_add(prize_amount)
         .ok_or(MegabytError::ArithmeticOverflow)?;
 
     draw_state.prize_pool = draw_state
         .prize_pool
-        .checked_add(global_state.ticket_price)
+        .checked_add(prize_amount)
         .ok_or(MegabytError::ArithmeticOverflow)?;
 
-    global_state.total_users = global_state
-        .total_users
-        .checked_add(1)
-        .ok_or(MegabytError::ArithmeticOverflow)?;
+    // Only count as new user on FIRST ticket ever (index 0, first draw)
+    if current_index == 0 {
+        global_state.total_users = global_state
+            .total_users
+            .checked_add(1)
+            .ok_or(MegabytError::ArithmeticOverflow)?;
 
-    global_state.active_users = global_state
-        .active_users
-        .checked_add(1)
-        .ok_or(MegabytError::ArithmeticOverflow)?;
+        global_state.active_users = global_state
+            .active_users
+            .checked_add(1)
+            .ok_or(MegabytError::ArithmeticOverflow)?;
+    }
 
+    // global_state.total_collected = apenas o que foi para prize_vault (95%)
     global_state.total_collected = global_state
         .total_collected
-        .checked_add(global_state.ticket_price)
+        .checked_add(prize_amount)
         .ok_or(MegabytError::ArithmeticOverflow)?;
 
+    // global_state.total_revenue_usdt = receita bruta (100%)
     global_state.total_revenue_usdt = global_state
         .total_revenue_usdt
         .checked_add(global_state.ticket_price)
@@ -242,25 +288,10 @@ pub fn handler(ctx: Context<BuyTicketWithReferral>, numbers: [u8; 6], crypto: u8
     msg!("TICKET BOUGHT WITH REFERRAL");
     msg!("user={}", user.key());
     msg!("draw_id={}", draw_state.id);
+    msg!("ticket_index={}", current_index);
+    msg!("tickets_bought_by_user={}", user_draw_state.tickets_bought);
     msg!("prize_amount={}", prize_amount);
     msg!("referral_amount={}", referral_amount);
 
-    Ok(())
-}
-
-fn validate_numbers(numbers: &[u8; 6]) -> Result<()> {
-    for n in numbers.iter() {
-        require!(*n >= 1 && *n <= 72, MegabytError::InvalidNumber);
-    }
-    for i in 0..numbers.len() {
-        for j in (i + 1)..numbers.len() {
-            require!(numbers[i] != numbers[j], MegabytError::DuplicateNumber);
-        }
-    }
-    Ok(())
-}
-
-fn validate_crypto(crypto: u8) -> Result<()> {
-    require!(crypto >= 1 && crypto <= 10, MegabytError::InvalidCryptoNumber);
     Ok(())
 }

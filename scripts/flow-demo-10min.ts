@@ -64,7 +64,7 @@ async function main(){
   step(1,"OPEN DRAW");
 
   const sigOpen = await program.methods
-    .openDraw(new anchor.BN(60))
+    .openDraw(new anchor.BN(90))
     .accounts({
       admin: wallet.publicKey,
       globalState: gs,

@@ -3,8 +3,10 @@ use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
 use crate::error::MegabytError;
 use crate::state::{Draw, GlobalState, Ticket, UserDrawState};
+use crate::validation::{validate_numbers, validate_crypto};
 
 #[derive(Accounts)]
+#[instruction(numbers: Vec<u8>, crypto: u8)]
 pub struct BuyTicket<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
@@ -35,7 +37,7 @@ pub struct BuyTicket<'info> {
     #[account(
         init,
         payer = user,
-        space = Ticket::LEN,
+        space = Ticket::len(&Pubkey::default(), &Pubkey::default(), global_state.numbers_count),
         seeds = [
             b"ticket",
             draw_state.key().as_ref(),
@@ -62,7 +64,7 @@ pub struct BuyTicket<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler(ctx: Context<BuyTicket>, numbers: [u8; 6], crypto: u8) -> Result<()> {
+pub fn handler(ctx: Context<BuyTicket>, numbers: Vec<u8>, crypto: u8) -> Result<()> {
     let user = &ctx.accounts.user;
     let global_state = &mut ctx.accounts.global_state;
     let draw_state = &mut ctx.accounts.draw_state;
@@ -74,8 +76,8 @@ pub fn handler(ctx: Context<BuyTicket>, numbers: [u8; 6], crypto: u8) -> Result<
     require!(!draw_state.is_closed, MegabytError::DrawAlreadyClosed);
     require!(clock.unix_timestamp <= draw_state.end_time, MegabytError::DrawStillOpen);
 
-    validate_numbers(&numbers)?;
-    validate_crypto(crypto)?;
+    validate_numbers(&numbers, global_state.numbers_count)?;
+    validate_crypto(crypto, global_state.crypto_count)?;
 
     require!(
         ctx.accounts.user_token_account.amount >= global_state.ticket_price,
@@ -183,22 +185,5 @@ pub fn handler(ctx: Context<BuyTicket>, numbers: [u8; 6], crypto: u8) -> Result<
     msg!("ticket_index={}", current_index);
     msg!("tickets_bought_by_user={}", user_draw_state.tickets_bought);
 
-    Ok(())
-}
-
-fn validate_numbers(numbers: &[u8; 6]) -> Result<()> {
-    for &n in numbers.iter() {
-        require!(n >= 1 && n <= 72, MegabytError::InvalidNumber);
-    }
-    for i in 0..numbers.len() {
-        for j in (i + 1)..numbers.len() {
-            require!(numbers[i] != numbers[j], MegabytError::DuplicateNumber);
-        }
-    }
-    Ok(())
-}
-
-fn validate_crypto(crypto: u8) -> Result<()> {
-    require!(crypto >= 1 && crypto <= 10, MegabytError::InvalidCryptoNumber);
     Ok(())
 }

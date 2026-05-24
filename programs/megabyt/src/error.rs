@@ -47,6 +47,9 @@ pub enum MegabytError {
     #[msg("Invalid numbers")]
     InvalidNumbers,
 
+    #[msg("Invalid numbers count for current phase")]
+    InvalidNumbersCount,
+
     #[msg("Duplicate number")]
     DuplicateNumber,
 

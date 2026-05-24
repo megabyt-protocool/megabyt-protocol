@@ -12,7 +12,7 @@ pub fn handler(ctx: Context<FulfillRandomness>, seed: [u8; 32]) -> Result<()> {
         MegabytError::Unauthorized
     );
 
-    require!(draw.is_open, MegabytError::DrawClosed);
+    // is_open não é exigido: request_randomness fecha as vendas antes do fulfill
     require!(!draw.is_closed, MegabytError::DrawAlreadyClosed);
     require!(draw.tickets_sold > 0, MegabytError::NoTicketsSold);
     require!(draw.randomness_requested, MegabytError::InvalidDrawState);

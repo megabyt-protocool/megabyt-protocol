@@ -1,8 +1,39 @@
-.anchor
+# Dependencies
+node_modules/
+target/
+
+# Solana / Anchor build artifacts
+.anchor/
+test-ledger/
 .DS_Store
-target
-**/*.rs.bk
-node_modules
-test-ledger
-.yarn
-.surfpool
+
+# Secrets / keys
+*.json
+!package.json
+!tsconfig.json
+!target/idl/*.json
+
+# Backups and temporary files
+*.bak
+*.save
+*.safe
+*.broken*
+*~
+*.tmp
+*_output.txt
+temp*.json
+final_test.txt
+
+# Project generated artifacts / stress snapshots
+artifacts_batches/
+_legacy_attic/
+
+# Local frontend backups
+frontend_clean/*.bak*
+frontend_clean/*.GOLDEN-WORKING
+frontend_clean/*.safe
+
+# Script keypairs / random local generated files
+scripts/*keypair*.json
+scripts/randomness-keypair.json
+scripts/megabyt-randomness-keypair.json

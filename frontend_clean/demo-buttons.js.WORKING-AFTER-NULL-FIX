@@ -467,7 +467,7 @@
               "/10 selected: " +
               ticket.picked.map((n) => String(n).padStart(2, "0")).join(" · ")
           );
-          await sleep(300);
+          await sleep(700);
 
           if (buyBtn.disabled) {
             const reason = buyBtn.textContent || "Buy button is disabled";
@@ -475,10 +475,6 @@
             if (box) box.value = reason;
             return;
           }
-
-          // Re-force crypto immediately before buy click
-          if (typeof window.selectedCrypto !== "undefined") window.selectedCrypto = ticket.crypto;
-          if (typeof selectedCrypto !== "undefined") selectedCrypto = ticket.crypto;
 
           log("Opening Phantom signature for ticket " + i + "/10...");
           buyBtn.click();
@@ -490,7 +486,7 @@
           }
 
           log("Moving to next ticket");
-          await sleep(500);
+          await sleep(1200);
         }
 
         log("Automatic 10-ticket purchase flow completed");

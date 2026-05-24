@@ -172,7 +172,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 <!-- STATS -->
 <div class="stats">
   <div class="st s1"><div class="sv" style="color:var(--ac)" id="sD">—</div><div class="sl">Draw</div></div>
-  <div class="st s2"><div class="sv" style="color:var(--gn)" id="sP">—</div><div class="sl">Prize Pool (USDT)</div></div>
+  <div class="st s2"><div class="sv" style="color:var(--gn)" id="sP">—</div><div class="sl">Prize Pool (BYT$)</div></div>
   <div class="st s3"><div class="sv" style="color:var(--or)" id="sT">—</div><div class="sl">Tickets Sold</div></div>
   <div class="st s4"><div class="sv" style="color:var(--cy)" id="sM">—</div><div class="sl">Monthly Jackpot</div></div>
   <div class="st s5"><div class="sv" style="color:var(--gd)" id="sV">—</div><div class="sl">Vault Balance</div></div>
@@ -188,7 +188,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
   <div class="card card-glow">
     <div class="ct">🏆 Round Prize Pool</div>
     <div class="prize-big" id="pzB">—</div>
-    <div class="prize-sub">60% of collected value • 1 ticket = 1 BYT$ = 2.00 USDT</div>
+    <div class="prize-sub">60% of collected value • ref ≈ 2.00 BYT$/ticket</div>
     <div class="sbar">
       <div class="sseg" style="flex:60;background:var(--gn)"></div>
       <div class="sseg" style="flex:15;background:var(--cy)"></div>
@@ -226,11 +226,6 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
     <div style="text-align:center;margin-bottom:10px">
       <div style="font-size:10px;color:var(--mt);text-transform:uppercase;letter-spacing:1px">
         CURRENT DRAW RESULT
-<div style="margin-top:10px; font-size:13px;">
-  <span style="color:#00ffa3;">🔎 Verify this result:</span><br>
-  <a href="https://explorer.solana.com/?cluster=devnet" target="_blank" style="color:#7df9ff;">View on-chain</a>
-</div>
-
       </div>
       <div id="rDrawId" style="font-family:var(--m);font-size:22px;font-weight:900;color:var(--gn);margin-top:4px">
         Draw #—
@@ -251,7 +246,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 
 <!-- PRIZE DISTRIBUTION -->
 <div class="card one-col">
-  <div class="ct">🏆 Prize Distribution (USDT)</div>
+  <div class="ct">🏆 Prize Distribution (BYT$)</div>
   <div id="distDrawId" style="font-family:var(--m);font-size:18px;font-weight:900;color:var(--gn);margin-bottom:10px">
     Draw #—
   </div>
@@ -581,8 +576,8 @@ function renderPrizeDistribution(raw){
     html += '<div class="dist-row">';
     html +=   '<div class="dist-faixa">' + TIER_LABELS[i] + '</div>';
     html +=   '<div class="dist-win">' + winners + '</div>';
-    var prizeLabel = (winners > 0 && prize === 0) ? "<<span style='color:#f1c40f;font-weight:600'>⚠ < $1.00 → Rolled over</span>" : (fmt(prize * 2) + " USDT");
-    var totalLabel = (winners > 0 && totalTier === 0) ? "< $1.00 → Rolled over" : (fmt(totalTier * 2) + " USDT");
+    var prizeLabel = (winners > 0 && prize === 0) ? "<<span style='color:#f1c40f;font-weight:600'>⚠ < $1.00 → Rolled over</span>" : (fmt(prize) + " BYT$");
+    var totalLabel = (winners > 0 && totalTier === 0) ? "< $1.00 → Rolled over" : (fmt(totalTier) + " BYT$");
 
     html +=   '<div class="dist-prize">' + prizeLabel + '</div>';
     html +=   '<div class="dist-total">' + totalLabel + '</div>';
@@ -591,7 +586,7 @@ function renderPrizeDistribution(raw){
 
   list.innerHTML = html;
   totalWinnersEl.textContent = totalWinners;
-  totalPaidEl.textContent = fmt(totalPaid * 2) + " USDT";
+  totalPaidEl.textContent = fmt(totalPaid) + " BYT$";
   ticketsPaidEl.textContent = rU64(raw, O_D_TICKETS_PAID);
 
   var status = raw[O_D_STATUS];
@@ -599,7 +594,7 @@ function renderPrizeDistribution(raw){
   var isPaid = raw[O_D_IS_PAID] === 1;
 
   distStatus.textContent = settlementComplete ? ("Settlement Complete • Status " + status) : ("Settlement Pending • Status " + status);
-  distPaid.textContent = isPaid ? "Payout Executed" : "Payout Processed";
+  distPaid.textContent = isPaid ? "Payout Executed" : "Payout Pending";
 
   var distDrawIdEl = document.getElementById("distDrawId");
   if(distDrawIdEl) distDrawIdEl.textContent = "Draw #" + rU64(raw, O_D_ID);
@@ -702,10 +697,9 @@ function renderDrawData(){
   document.getElementById("sD").textContent = "#" + id;
   var rDrawIdEl = document.getElementById("rDrawId");
   if(rDrawIdEl) rDrawIdEl.textContent = "Draw #" + id;
-    var displayPool = pool * 2;
-    document.getElementById("sP").textContent = fmt(displayPool);
+  document.getElementById("sP").textContent = fmt(pool);
   document.getElementById("sT").textContent = sold;
-    document.getElementById("pzB").textContent = fmt(displayPool) + " USDT";
+  document.getElementById("pzB").textContent = fmt(pool) + " BYT$";
 
   startCountdown();
 
@@ -787,7 +781,7 @@ async function loadRecentDraws(){
     html +=     '<div class="hb crypto">' + (CRYPTO_NAMES[item.crypto-1] || ('#' + item.crypto)) + '</div>';
     html +=   '</div>';
     html +=   '<div class="hist-sub">';
-    html +=     '<span>Pool: ' + fmt(item.pool * 2) + ' USDT</span>';
+    html +=     '<span>Pool: ' + fmt(item.pool) + ' BYT$</span>';
     html +=     '<span>Tickets: ' + item.sold + '</span>';
     html +=     '<span>Finalized</span>';
     html +=   '</div>';
@@ -858,11 +852,6 @@ function recordBetHistory(bet){
 async function doBuy(){
   if(!wallet || selectedNumbers.length !== 6 || !selectedCrypto || !drawPda || !vaultMint) return;
 
-  var cryptoToBuy = Number(selectedCrypto);
-  if(!Number.isInteger(cryptoToBuy) || cryptoToBuy < 1 || cryptoToBuy > 10){
-    throw new Error("Invalid crypto selected at buy start: " + selectedCrypto);
-  }
-
   var btn = document.getElementById("bBtn");
   btn.textContent = "Preparing…";
   btn.className = "bb loading";
@@ -924,6 +913,11 @@ async function doBuy(){
       }
     }catch(e){
       addLog("Balance check warning: " + e.message, "lew");
+    }
+
+    var cryptoToBuy = Number(selectedCrypto);
+    if(!Number.isInteger(cryptoToBuy) || cryptoToBuy < 1 || cryptoToBuy > 10){
+      throw new Error("Invalid crypto selected before buy: " + selectedCrypto);
     }
 
     var discHash = await crypto.subtle.digest("SHA-256", enc("global:buy_ticket"));
@@ -1531,27 +1525,5 @@ window.closeAndPay = async function() {
   }, 1000);
 })();
 </script>
-\n
-<!-- MEGABYT SAFE VERIFY LINKS - VISUAL ONLY -->
-<div id="safeVerifyLinks" style="
-  position: fixed;
-  right: 22px;
-  bottom: 22px;
-  z-index: 9999;
-  background: rgba(5, 8, 18, 0.92);
-  border: 1px solid rgba(0,255,163,0.35);
-  border-radius: 14px;
-  padding: 10px 12px;
-  font-family: Inter, Arial, sans-serif;
-  font-size: 12px;
-  color: #e8fff5;
-  box-shadow: 0 0 24px rgba(0,255,163,0.12);
-">
-  <div style="font-weight:800; color:#00ffa3; margin-bottom:6px;">🔎 ON-CHAIN PROOF</div>
-  <a href="https://explorer.solana.com/?cluster=devnet" target="_blank" style="color:#7df9ff; text-decoration:none;">View Explorer</a>
-  &nbsp;|&nbsp;
-  <a href="https://explorer.solana.com/address/2sq5GDjs2ESDEK2Jpec7je2aAnVJ2w7uZgM1Qh5GgpmS?cluster=devnet" target="_blank" style="color:#7df9ff; text-decoration:none;">Program</a>
-</div>
-
-</body>
+\n</body>
 </html>

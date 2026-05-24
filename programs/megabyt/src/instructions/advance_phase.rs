@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::constants::{get_phase_config, MAX_PHASES};
+use crate::constants::MAX_PHASES;
 use crate::error::MegabytError;
 use crate::state::GlobalState;
 

@@ -92,10 +92,10 @@ pub struct Draw {
     pub winner: Pubkey,
 
     pub crypto_number: u8,
-    pub result_numbers: [u8; 6],
+    pub result_numbers: Vec<u8>,
     pub result_crypto: u8,
 
-    pub winning_numbers: [u8; 6],
+    pub winning_numbers: Vec<u8>,
     pub winning_crypto: u8,
 
     // VRF real
@@ -120,17 +120,27 @@ pub struct Draw {
     /// Total amount from this draw sent to monthly accumulator
     /// (residuals from division + tiers below 1 USDT minimum)
     pub monthly_rollover_contribution: u64,
+
+    // ===== PHASE CONFIG =====
+    /// Number of numbers per ticket for this draw (from phase config)
+    pub numbers_count: u8,
 }
 
 impl Draw {
-    pub const LEN: usize = 8
+    pub const MAX_NUMBERS: usize = 25;
+
+    pub fn len(numbers_count: u8) -> usize {
+        8  // discriminator
         + 8     // id
         + 1 + 1 + 1 + 1  // bools
         + 8 + 8           // times
         + 8 + 8 + 8 + 8 + 8 + 8  // amounts
         + 32    // winner
-        + 1 + 6 + 1      // crypto/numbers
-        + 6 + 1           // winning
+        + 1     // crypto_number
+        + 4 + (numbers_count as usize)  // result_numbers Vec
+        + 1     // result_crypto
+        + 4 + (numbers_count as usize)  // winning_numbers Vec
+        + 1     // winning_crypto
         + 32 + 8          // randomness account + commit_slot
         + 32              // random_seed
         + 1 + 1           // randomness bools
@@ -140,7 +150,9 @@ impl Draw {
         + 1               // settlement_complete
         + 1               // status
         + 1               // bump
-        + 8;              // monthly_rollover_contribution
+        + 8               // monthly_rollover_contribution
+        + 1               // numbers_count
+    }
 }
 
 #[account]
@@ -149,7 +161,7 @@ pub struct Ticket {
     pub draw: Pubkey,
     pub draw_id: u64,
 
-    pub numbers: [u8; 6],
+    pub numbers: Vec<u8>,
     pub crypto: u8,
     pub crypto_number: u8,
 
@@ -168,11 +180,15 @@ pub struct Ticket {
 }
 
 impl Ticket {
-    pub const LEN: usize = 8
+    /// Dynamic length: 4 bytes for Vec length prefix + up to 25 bytes for numbers
+    pub const MAX_NUMBERS: usize = 25;
+
+    pub fn len(_owner: &Pubkey, _draw: &Pubkey, numbers_count: u8) -> usize {
+        8  // discriminator
         + 32    // owner
         + 32    // draw
         + 8     // draw_id
-        + 6     // numbers
+        + 4 + (numbers_count as usize)  // Vec<u8>: 4 bytes length + data
         + 1     // crypto
         + 1     // crypto_number
         + 1     // claimed
@@ -181,7 +197,8 @@ impl Ticket {
         + 1     // tier
         + 8     // prize_amount
         + 1     // bump
-        + 4;    // ticket_index
+        + 4     // ticket_index
+    }
 }
 
 // ===== USER STATE FOR REFERRAL SYSTEM =====

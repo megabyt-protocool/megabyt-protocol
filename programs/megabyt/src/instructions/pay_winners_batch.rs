@@ -11,10 +11,7 @@ pub fn handler(ctx: Context<PayWinnersBatch>, _batch_size: u32) -> Result<()> {
     let prize_vault = &ctx.accounts.prize_vault;
     let user_token_account = &ctx.accounts.user_token_account;
 
-    require!(
-        draw.settlement_complete,
-        MegabytError::SettlementNotComplete
-    );
+    require!(draw.status == 3, MegabytError::DrawNotReady);
 
     let total_winners: u64 = draw
         .winner_counts
@@ -26,7 +23,7 @@ pub fn handler(ctx: Context<PayWinnersBatch>, _batch_size: u32) -> Result<()> {
     // Caminho rápido para draw sem vencedores
     if total_winners == 0 {
         draw.is_paid = true;
-        draw.status = 3;
+        draw.status = 4;
 
         msg!("NO WINNERS - MARKING DRAW AS PAID");
         msg!("draw_id={}", draw.id);
@@ -97,7 +94,7 @@ pub fn handler(ctx: Context<PayWinnersBatch>, _batch_size: u32) -> Result<()> {
 
     if draw.tickets_paid >= total_winners {
         draw.is_paid = true;
-        draw.status = 3;
+        draw.status = 4;
     }
 
     msg!("WINNER PAYMENT PROCESSED");
