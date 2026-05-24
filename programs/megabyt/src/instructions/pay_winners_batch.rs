@@ -110,7 +110,11 @@ pub fn handler(ctx: Context<PayWinnersBatch>, _batch_size: u32) -> Result<()> {
 
 #[derive(Accounts)]
 pub struct PayWinnersBatch<'info> {
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [b"draw-v3", &draw.id.to_le_bytes()],
+        bump = draw.bump
+    )]
     pub draw: Account<'info, Draw>,
 
     #[account(mut)]

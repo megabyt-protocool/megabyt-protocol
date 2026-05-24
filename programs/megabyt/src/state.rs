@@ -244,3 +244,25 @@ impl UserDrawState {
         + 4     // tickets_bought
         + 1;    // bump
 }
+
+// ===== USER GLOBAL STATE (UNIQUE USER COUNTER) =====
+// PDA seeded by user key only — ensures total_users / active_users
+// are incremented exactly once per wallet across all draws.
+
+#[account]
+pub struct UserGlobalState {
+    /// The user wallet this state belongs to
+    pub user: Pubkey,
+    /// Whether this user has already been counted in global_state.total_users
+    /// and global_state.active_users. Set to true on first ticket ever.
+    pub counted_globally: bool,
+    /// PDA bump
+    pub bump: u8,
+}
+
+impl UserGlobalState {
+    pub const LEN: usize = 8
+        + 32    // user
+        + 1     // counted_globally
+        + 1;    // bump
+}

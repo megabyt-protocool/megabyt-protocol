@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::error::MegabytError;
-use crate::state::{Draw, Ticket};
+use crate::state::{Draw, GlobalState, Ticket};
 
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, SettleTickets<'info>>,
@@ -56,7 +56,7 @@ pub fn handler<'info>(
         let crypto_hit =
             ticket.crypto == draw.result_crypto || ticket.crypto_number == draw.result_crypto;
 
-        let tier = resolve_tier(hits, crypto_hit);
+        let tier = resolve_tier(hits, crypto_hit, draw.numbers_count);
 
         ticket.tier = tier;
         ticket.settled = true;
@@ -119,24 +119,49 @@ fn count_hits(ticket_numbers: &[u8], result_numbers: &[u8]) -> u8 {
     hits
 }
 
-fn resolve_tier(hits: u8, crypto_hit: bool) -> u8 {
-    match (hits, crypto_hit) {
-        (6, true) => 0,
-        (6, false) => 1,
-        (5, true) => 2,
-        (5, false) => 3,
-        (4, true) => 4,
-        (4, false) => 5,
-        (3, true) => 6,
-        (3, false) => 7,
-        (2, true) => 8,
-        (2, false) => 9,
-        _ => 255,
+/// Classifica um ticket em um tier de premio baseado em acertos.
+///
+/// Formula dinamica baseada em deficit (quantos numeros o ticket errou):
+///
+///   deficit 0 → tier 0 (com crypto) / tier 1 (sem crypto)
+///   deficit 1 → tier 2 / tier 3
+///   deficit 2 → tier 4 / tier 5
+///   deficit 3 → tier 6 / tier 7
+///   deficit 4 → tier 8 / tier 9
+///   deficit > 4 → tier 255 (sem premio)
+///
+/// Funciona para qualquer numbers_count (6..=25), adaptando automaticamente
+/// as fases do sistema. Exemplo:
+///   - Fase 1 (6 numeros): premia 6, 5, 4, 3, 2 acertos
+///   - Fase 10 (25 numeros): premia 25, 24, 23, 22, 21 acertos
+fn resolve_tier(hits: u8, crypto_hit: bool, numbers_count: u8) -> u8 {
+    if hits > numbers_count {
+        return 255;
     }
+    let deficit = numbers_count - hits;
+    if deficit > 4 {
+        return 255;
+    }
+    let base = deficit * 2;
+    if crypto_hit { base } else { base + 1 }
 }
 
 #[derive(Accounts)]
 pub struct SettleTickets<'info> {
     #[account(mut)]
+    pub admin: Signer<'info>,
+
+    #[account(
+        seeds = [b"global-state-v3"],
+        bump,
+        has_one = admin @ MegabytError::Unauthorized
+    )]
+    pub global_state: Account<'info, GlobalState>,
+
+    #[account(
+        mut,
+        seeds = [b"draw-v3", &draw.id.to_le_bytes()],
+        bump = draw.bump
+    )]
     pub draw: Account<'info, Draw>,
 }

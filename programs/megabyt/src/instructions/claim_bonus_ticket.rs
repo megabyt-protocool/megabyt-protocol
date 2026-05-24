@@ -6,7 +6,7 @@ use crate::validation::{validate_numbers, validate_crypto};
 
 pub fn handler(ctx: Context<ClaimBonusTicket>, numbers: Vec<u8>, crypto: u8) -> Result<()> {
     let user = &ctx.accounts.user;
-    let global_state = &ctx.accounts.global_state;
+    let global_state = &mut ctx.accounts.global_state;
     let user_state = &mut ctx.accounts.user_state;
     let user_draw_state = &mut ctx.accounts.user_draw_state;
     let draw_state = &mut ctx.accounts.draw_state;
@@ -31,6 +31,14 @@ pub fn handler(ctx: Context<ClaimBonusTicket>, numbers: Vec<u8>, crypto: u8) -> 
     // Validate numbers and crypto
     validate_numbers(&numbers, global_state.numbers_count)?;
     validate_crypto(crypto, global_state.crypto_count)?;
+
+    // Supply cap validation: ensure we don't exceed phase limit
+    if global_state.total_supply_cap > 0 {
+        require!(
+            global_state.released_supply < global_state.total_supply_cap,
+            MegabytError::SupplyCapExceeded
+        );
+    }
 
     // Consume 1 credit
     user_state.bonus_ticket_credits = user_state
@@ -74,12 +82,19 @@ pub fn handler(ctx: Context<ClaimBonusTicket>, numbers: Vec<u8>, crypto: u8) -> 
 
     // Note: no total_amount / total_collected increase (bonus = free)
 
+    // Increment released supply (bonus ticket also consumes supply)
+    global_state.released_supply = global_state
+        .released_supply
+        .checked_add(1)
+        .ok_or(MegabytError::ArithmeticOverflow)?;
+
     msg!("BONUS TICKET CLAIMED");
     msg!("user={}", user.key());
     msg!("draw_id={}", draw_state.id);
     msg!("ticket_index={}", current_index);
     msg!("tickets_bought_by_user={}", user_draw_state.tickets_bought);
     msg!("remaining_credits={}", user_state.bonus_ticket_credits);
+    msg!("released_supply={}/{}", global_state.released_supply, global_state.total_supply_cap);
 
     Ok(())
 }
@@ -90,6 +105,7 @@ pub struct ClaimBonusTicket<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
+    #[account(mut)]
     pub global_state: Box<Account<'info, GlobalState>>,
 
     #[account(
@@ -100,7 +116,11 @@ pub struct ClaimBonusTicket<'info> {
     )]
     pub user_state: Box<Account<'info, UserState>>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [b"draw-v3", &draw_state.id.to_le_bytes()],
+        bump = draw_state.bump
+    )]
     pub draw_state: Box<Account<'info, Draw>>,
 
     /// User's draw state — tracks ticket count per user per draw.

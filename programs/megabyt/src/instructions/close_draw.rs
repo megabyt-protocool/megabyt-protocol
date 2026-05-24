@@ -5,24 +5,36 @@ use crate::error::MegabytError;
 use crate::state::{Draw, GlobalState};
 
 const TIER_BPS: [u64; 10] = [
-    5500, // 6 + crypto
-    1200, // 6
-    800,  // 5 + crypto
-    600,  // 5
-    500,  // 4 + crypto
-    400,  // 4
-    300,  // 3 + crypto
-    300,  // 3
-    250,  // 2 + crypto
-    150,  // 2
+    5500, // all numbers + crypto     (deficit 0, with crypto)
+    1200, // all numbers              (deficit 0, without crypto)
+    800,  // all-1 numbers + crypto   (deficit 1, with crypto)
+    600,  // all-1 numbers            (deficit 1, without crypto)
+    500,  // all-2 numbers + crypto   (deficit 2, with crypto)
+    400,  // all-2 numbers            (deficit 2, without crypto)
+    300,  // all-3 numbers + crypto   (deficit 3, with crypto)
+    300,  // all-3 numbers            (deficit 3, without crypto)
+    250,  // all-4 numbers + crypto   (deficit 4, with crypto)
+    150,  // all-4 numbers            (deficit 4, without crypto)
 ];
 
 #[derive(Accounts)]
 pub struct CloseDraw<'info> {
     #[account(mut)]
+    pub admin: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"global-state-v3"],
+        bump,
+        has_one = admin @ MegabytError::Unauthorized
+    )]
     pub global_state: Account<'info, GlobalState>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [b"draw-v3", &draw.id.to_le_bytes()],
+        bump = draw.bump
+    )]
     pub draw: Account<'info, Draw>,
 
     /// CHECK: conta de randomness da Switchboard; validada contra draw.randomness_account
@@ -49,54 +61,40 @@ pub fn handler(ctx: Context<CloseDraw>) -> Result<()> {
     require!(draw.randomness_requested, MegabytError::InvalidDrawState);
 
     // =========================================================
-    //  DUAL MODE: PRE-FILLED (test) vs VRF (production)
+    //  SWITCHBOARD VRF ONLY — NO MANUAL SEED FALLBACK
     //
-    //  Mode 1 (test/localnet):
-    //    fulfill_randomness already set random_seed + randomness_fulfilled.
-    //    We use the pre-filled seed directly. No Switchboard parse needed.
-    //
-    //  Mode 2 (production/devnet/mainnet):
-    //    randomness_fulfilled is false. We parse the Switchboard account,
-    //    validate it matches draw.randomness_account, and read the VRF value.
-    //    NO FALLBACK. If VRF not ready, tx fails.
+    //  Parse the Switchboard randomness account, validate it matches
+    //  the one registered in request_randomness, and read the VRF value.
+    //  NO FALLBACK. If VRF not ready, tx fails.
     // =========================================================
 
-    let seed: [u8; 32] = if draw.randomness_fulfilled && draw.random_seed != [0u8; 32] {
-        // MODE 1: Pre-filled by fulfill_randomness (test/localnet)
-        msg!("Using pre-filled randomness (fulfill_randomness path)");
-        draw.random_seed
-    } else {
-        // MODE 2: Production VRF via Switchboard
-        msg!("Using Switchboard VRF (production path)");
+    msg!("Using Switchboard VRF (production path)");
 
-        // Validate account matches the one registered in request_randomness
-        require_keys_eq!(
-            ctx.accounts.randomness_account_data.key(),
-            draw.randomness_account,
-            MegabytError::InvalidDrawState
-        );
+    // Validate account matches the one registered in request_randomness
+    require_keys_eq!(
+        ctx.accounts.randomness_account_data.key(),
+        draw.randomness_account,
+        MegabytError::InvalidDrawState
+    );
 
-        let randomness_data = RandomnessAccountData::parse(
-            ctx.accounts.randomness_account_data.data.borrow()
-        ).map_err(|_| {
-            msg!("ERROR: Switchboard account parse failed");
-            MegabytError::InvalidDrawState
-        })?;
+    let randomness_data = RandomnessAccountData::parse(
+        ctx.accounts.randomness_account_data.data.borrow()
+    ).map_err(|_| {
+        msg!("ERROR: Switchboard account parse failed");
+        MegabytError::InvalidDrawState
+    })?;
 
-        let revealed_random_value = get_randomness_with_tolerance(
-            &randomness_data,
-            clock.slot
-        ).map_err(|e| {
-            msg!("ERROR: VRF not fulfilled yet. Wait for oracle.");
-            e
-        })?;
+    let seed = get_randomness_with_tolerance(
+        &randomness_data,
+        clock.slot
+    ).map_err(|e| {
+        msg!("ERROR: VRF not fulfilled yet. Wait for oracle.");
+        e
+    })?;
 
-        // Mark fulfilled ONLY after real VRF confirmed
-        draw.randomness_fulfilled = true;
-        draw.random_seed = revealed_random_value;
-
-        revealed_random_value
-    };
+    // Mark fulfilled ONLY after real VRF confirmed
+    draw.randomness_fulfilled = true;
+    draw.random_seed = seed;
 
     msg!("seed={:?}", &seed[..8]);
 
@@ -147,6 +145,12 @@ pub fn handler(ctx: Context<CloseDraw>) -> Result<()> {
         .ok_or(MegabytError::MathOverflow)?
         .checked_div(100)
         .ok_or(MegabytError::MathOverflow)?;
+
+    // NOTE: referral_amount here is redirected to monthly_pool, NOT to referral_total.
+    // The actual referral payments (5% of ticket price) are made directly in
+    // buy_ticket_with_referral and tracked in global_state.referral_total there.
+    // This "referral" portion in close_draw is effectively a bonus contribution
+    // to the monthly pool, not a duplicate referral payment.
 
     let costs_amount = total_collected
         .checked_mul(5)

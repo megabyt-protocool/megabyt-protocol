@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
 use crate::error::MegabytError;
-use crate::state::{Draw, GlobalState, Ticket, UserDrawState, UserState};
+use crate::state::{Draw, GlobalState, Ticket, UserDrawState, UserGlobalState, UserState};
 use crate::validation::{validate_numbers, validate_crypto};
 
 #[derive(Accounts)]
@@ -18,7 +18,11 @@ pub struct BuyTicketWithReferral<'info> {
     )]
     pub global_state: Box<Account<'info, GlobalState>>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [b"draw-v3", &draw_state.id.to_le_bytes()],
+        bump = draw_state.bump
+    )]
     pub draw_state: Box<Account<'info, Draw>>,
 
     /// User's draw state — tracks ticket count per user per draw.
@@ -31,6 +35,17 @@ pub struct BuyTicketWithReferral<'info> {
         bump
     )]
     pub user_draw_state: Box<Account<'info, UserDrawState>>,
+
+    /// User's global state — tracks whether this wallet has been counted
+    /// in global total_users / active_users. Created on first buy ever.
+    #[account(
+        init_if_needed,
+        payer = user,
+        space = UserGlobalState::LEN,
+        seeds = [b"user-global-v3", user.key().as_ref()],
+        bump
+    )]
+    pub user_global_state: Box<Account<'info, UserGlobalState>>,
 
     #[account(
         init,
@@ -93,6 +108,7 @@ pub fn handler(ctx: Context<BuyTicketWithReferral>, numbers: Vec<u8>, crypto: u8
     let ticket = &mut ctx.accounts.ticket;
     let user_state = &mut ctx.accounts.user_state;
     let user_draw_state = &mut ctx.accounts.user_draw_state;
+    let user_global_state = &mut ctx.accounts.user_global_state;
     let referrer_state = &mut ctx.accounts.referrer_state;
     let clock = Clock::get()?;
 
@@ -109,11 +125,26 @@ pub fn handler(ctx: Context<BuyTicketWithReferral>, numbers: Vec<u8>, crypto: u8
         MegabytError::InvalidTicket
     );
 
+    // Supply cap validation: ensure we don't exceed phase limit
+    // Only check if total_supply_cap is set (> 0)
+    if global_state.total_supply_cap > 0 {
+        require!(
+            global_state.released_supply < global_state.total_supply_cap,
+            MegabytError::SupplyCapExceeded
+        );
+    }
+
     // Initialize user_draw_state if first ticket in this draw
     if user_draw_state.tickets_bought == 0 {
         user_draw_state.user = user.key();
         user_draw_state.draw = draw_state.key();
         user_draw_state.bump = ctx.bumps.user_draw_state;
+    }
+
+    // Initialize user_global_state if first ticket ever
+    if user_global_state.user == Pubkey::default() {
+        user_global_state.user = user.key();
+        user_global_state.bump = ctx.bumps.user_global_state;
     }
 
     // === REFERRAL VALIDATION ===
@@ -260,8 +291,10 @@ pub fn handler(ctx: Context<BuyTicketWithReferral>, numbers: Vec<u8>, crypto: u8
         .checked_add(prize_amount)
         .ok_or(MegabytError::ArithmeticOverflow)?;
 
-    // Only count as new user on FIRST ticket ever (index 0, first draw)
-    if current_index == 0 {
+    // Only count as new user on FIRST ticket ever (across all draws)
+    if !user_global_state.counted_globally {
+        user_global_state.counted_globally = true;
+
         global_state.total_users = global_state
             .total_users
             .checked_add(1)
@@ -271,6 +304,8 @@ pub fn handler(ctx: Context<BuyTicketWithReferral>, numbers: Vec<u8>, crypto: u8
             .active_users
             .checked_add(1)
             .ok_or(MegabytError::ArithmeticOverflow)?;
+
+        msg!("NEW GLOBAL USER counted: total_users={}", global_state.total_users);
     }
 
     // global_state.total_collected = apenas o que foi para prize_vault (95%)
@@ -285,6 +320,12 @@ pub fn handler(ctx: Context<BuyTicketWithReferral>, numbers: Vec<u8>, crypto: u8
         .checked_add(global_state.ticket_price)
         .ok_or(MegabytError::ArithmeticOverflow)?;
 
+    // Increment released supply (each ticket consumes 1 unit of supply)
+    global_state.released_supply = global_state
+        .released_supply
+        .checked_add(1)
+        .ok_or(MegabytError::ArithmeticOverflow)?;
+
     msg!("TICKET BOUGHT WITH REFERRAL");
     msg!("user={}", user.key());
     msg!("draw_id={}", draw_state.id);
@@ -292,6 +333,7 @@ pub fn handler(ctx: Context<BuyTicketWithReferral>, numbers: Vec<u8>, crypto: u8
     msg!("tickets_bought_by_user={}", user_draw_state.tickets_bought);
     msg!("prize_amount={}", prize_amount);
     msg!("referral_amount={}", referral_amount);
+    msg!("released_supply={}/{}", global_state.released_supply, global_state.total_supply_cap);
 
     Ok(())
 }

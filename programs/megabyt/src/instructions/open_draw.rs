@@ -38,7 +38,13 @@ pub fn handler(ctx: Context<OpenDraw>, duration: i64) -> Result<()> {
 
     require!(duration > 0, MegabytError::InvalidDuration);
 
-    let next_draw_id = global_state.current_draw_id + 1;
+    // Maximum duration: 30 days (2,592,000 seconds)
+    const MAX_DURATION: i64 = 30 * 24 * 3600;
+    require!(duration <= MAX_DURATION, MegabytError::InvalidDuration);
+
+    let next_draw_id = global_state.current_draw_id
+        .checked_add(1)
+        .ok_or(MegabytError::ArithmeticOverflow)?;
 
     draw_state.id = next_draw_id;
     draw_state.bump = ctx.bumps.draw_state;
@@ -49,7 +55,9 @@ pub fn handler(ctx: Context<OpenDraw>, duration: i64) -> Result<()> {
     draw_state.settled = false;
 
     draw_state.start_time = clock.unix_timestamp;
-    draw_state.end_time = clock.unix_timestamp + duration;
+    draw_state.end_time = clock.unix_timestamp
+        .checked_add(duration)
+        .ok_or(MegabytError::ArithmeticOverflow)?;
 
     draw_state.total_tickets = 0;
     draw_state.total_amount = 0;

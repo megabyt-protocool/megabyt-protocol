@@ -1,11 +1,18 @@
 use anchor_lang::prelude::*;
 
 use crate::error::MegabytError;
-use crate::state::Draw;
+use crate::state::{Draw, GlobalState};
 
 pub fn handler(ctx: Context<RequestRandomness>) -> Result<()> {
     let draw = &mut ctx.accounts.draw;
+    let global_state = &ctx.accounts.global_state;
     let clock = Clock::get()?;
+
+    // Only admin can request randomness
+    require!(
+        global_state.admin == ctx.accounts.admin.key(),
+        MegabytError::Unauthorized
+    );
 
     require!(draw.is_open, MegabytError::DrawClosed);
     require!(!draw.is_closed, MegabytError::DrawAlreadyClosed);
@@ -18,8 +25,8 @@ pub fn handler(ctx: Context<RequestRandomness>) -> Result<()> {
     //  FECHAR VENDAS — impede front-running via VRF leak
     //
     //  A partir daqui, buy_ticket falha porque is_open = false.
-    //  close_draw e fulfill_randomness continuam funcionando
-    //  porque validam !is_closed + randomness_requested.
+    //  close_draw continua funcionando
+    //  porque valida !is_closed + randomness_requested.
     // =========================================================
     draw.is_open = false;
 
@@ -47,6 +54,20 @@ pub fn handler(ctx: Context<RequestRandomness>) -> Result<()> {
 #[derive(Accounts)]
 pub struct RequestRandomness<'info> {
     #[account(mut)]
+    pub admin: Signer<'info>,
+
+    #[account(
+        seeds = [b"global-state-v3"],
+        bump,
+        has_one = admin @ MegabytError::Unauthorized
+    )]
+    pub global_state: Account<'info, GlobalState>,
+
+    #[account(
+        mut,
+        seeds = [b"draw-v3", &draw.id.to_le_bytes()],
+        bump = draw.bump
+    )]
     pub draw: Account<'info, Draw>,
 
     /// CHECK: conta de randomness da Switchboard; apenas registramos a pubkey aqui.

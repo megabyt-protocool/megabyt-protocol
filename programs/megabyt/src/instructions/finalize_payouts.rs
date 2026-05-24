@@ -143,8 +143,20 @@ pub fn handler(ctx: Context<FinalizePayouts>) -> Result<()> {
 #[derive(Accounts)]
 pub struct FinalizePayouts<'info> {
     #[account(mut)]
+    pub admin: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"global-state-v3"],
+        bump,
+        has_one = admin @ MegabytError::Unauthorized
+    )]
     pub global_state: Account<'info, GlobalState>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [b"draw-v3", &draw.id.to_le_bytes()],
+        bump = draw.bump
+    )]
     pub draw: Account<'info, Draw>,
 }

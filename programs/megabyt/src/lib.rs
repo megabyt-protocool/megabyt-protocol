@@ -58,13 +58,6 @@ pub mod megabyt {
         instructions::request_randomness::handler(ctx)
     }
 
-    pub fn fulfill_randomness(
-        ctx: Context<FulfillRandomness>,
-        seed: [u8; 32],
-    ) -> Result<()> {
-        instructions::fulfill_randomness::handler(ctx, seed)
-    }
-
     pub fn verify_randomness(
         ctx: Context<VerifyRandomness>,
         draw_id: u64,

@@ -7,12 +7,6 @@ use crate::state::GlobalState;
 pub fn handler(ctx: Context<AdvancePhase>) -> Result<()> {
     let global_state = &mut ctx.accounts.global_state;
 
-    // Only admin
-    require!(
-        ctx.accounts.admin.key() == global_state.admin,
-        MegabytError::Unauthorized
-    );
-
     // Check current phase
     let current = global_state.current_phase;
     require!(current < MAX_PHASES as u64, MegabytError::MaxPhaseReached);
@@ -33,6 +27,7 @@ pub fn handler(ctx: Context<AdvancePhase>) -> Result<()> {
     global_state.numbers_count = config.numbers_per_ticket;
     global_state.crypto_count = config.max_cryptos;
     global_state.current_phase_supply = config.supply_to_release;
+    global_state.total_supply_cap = config.cumulative_supply;
 
     msg!("PHASE ADVANCED");
     msg!("new_phase={}", next_phase);
@@ -41,6 +36,7 @@ pub fn handler(ctx: Context<AdvancePhase>) -> Result<()> {
     msg!("numbers_per_ticket={}", config.numbers_per_ticket);
     msg!("max_cryptos={}", config.max_cryptos);
     msg!("supply_to_release={}", config.supply_to_release);
+    msg!("total_supply_cap={}", config.cumulative_supply);
 
     Ok(())
 }
