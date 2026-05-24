@@ -74,6 +74,13 @@ describe("megabyt", () => {
     )[0];
   }
 
+  function getUserGlobalStatePDA(owner: PublicKey): PublicKey {
+    return PublicKey.findProgramAddressSync(
+      [Buffer.from("user-global-v3"), owner.toBuffer()],
+      program.programId
+    )[0];
+  }
+
   before(async () => {
     const adminAirdropSig = await connection.requestAirdrop(
       admin.publicKey, 5 * anchor.web3.LAMPORTS_PER_SOL
@@ -147,14 +154,16 @@ describe("megabyt", () => {
 
   it("buy_ticket", async () => {
     const userDrawState = getUserDrawStatePDA(drawStatePda, user.publicKey);
+    const userGlobalState = getUserGlobalStatePDA(user.publicKey);
 
     await (program.methods
-      .buyTicket([1, 2, 3, 4, 5, 6], 1)
+      .buyTicket(Buffer.from([1, 2, 3, 4, 5, 6]), 1)
       .accounts as any)({
         user: user.publicKey,
         globalState,
         drawState: drawStatePda,
         userDrawState,
+        userGlobalState,
         ticket,
         userTokenAccount,
         prizeVault,
@@ -170,6 +179,8 @@ describe("megabyt", () => {
     await (program.methods
       .requestRandomness()
       .accounts as any)({
+        admin: admin.publicKey,
+        globalState,
         draw: drawStatePda,
         randomnessAccount: randomnessAccountData.publicKey,
       }).rpc();
@@ -181,25 +192,11 @@ describe("megabyt", () => {
     );
   });
 
-  it("fulfill_randomness", async () => {
-    const mockSeed = Array.from({ length: 32 }, (_, i) => i + 1);
-
-    await (program.methods
-      .fulfillRandomness(mockSeed)
-      .accounts as any)({
-        admin: admin.publicKey,
-        globalState,
-        draw: drawStatePda,
-      }).rpc();
-
-    const drawAccount = await program.account.draw.fetch(drawStatePda);
-    expect(drawAccount.randomnessFulfilled).to.equal(true);
-  });
-
   it("close_draw", async () => {
     await (program.methods
       .closeDraw()
       .accounts as any)({
+        admin: admin.publicKey,
         globalState,
         draw: drawStatePda,
         randomnessAccountData: randomnessAccountData.publicKey,
@@ -210,10 +207,27 @@ describe("megabyt", () => {
     expect(Number(drawAccount.status)).to.equal(1);
   });
 
+  it("verify_randomness", async () => {
+    const globalBefore: any = await program.account.globalState.fetch(globalState);
+    const drawId = new anchor.BN(globalBefore.currentDrawId);
+
+    await (program.methods
+      .verifyRandomness(drawId)
+      .accounts as any)({
+        draw: drawStatePda,
+        randomnessAccountData: randomnessAccountData.publicKey,
+      }).rpc();
+
+    const drawAccount = await program.account.draw.fetch(drawStatePda);
+    expect(drawAccount.randomnessFulfilled).to.equal(true);
+  });
+
   it("settle_tickets", async () => {
     await (program.methods
       .settleTickets(1)
       .accounts as any)({
+        admin: admin.publicKey,
+        globalState,
         draw: drawStatePda,
       }).remainingAccounts([
         { pubkey: ticket, isWritable: true, isSigner: false },
@@ -232,6 +246,7 @@ describe("megabyt", () => {
     await (program.methods
       .finalizePayouts()
       .accounts as any)({
+        admin: admin.publicKey,
         globalState,
         draw: drawStatePda,
       }).rpc();
@@ -254,6 +269,7 @@ describe("megabyt", () => {
       }).rpc();
 
     const drawAccount = await program.account.draw.fetch(drawStatePda);
-    expect(Number(drawAccount.status)).to.equal(3);
+    // Status may be 3 (partial payment) or 4 (all winners paid / no winners)
+    expect(Number(drawAccount.status)).to.be.oneOf([3, 4]);
   });
 });

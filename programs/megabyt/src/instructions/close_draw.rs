@@ -68,6 +68,17 @@ pub fn handler(ctx: Context<CloseDraw>) -> Result<()> {
     //  NO FALLBACK. If VRF not ready, tx fails.
     // =========================================================
 
+    // =========================================================
+    //  SWITCHBOARD VRF / TESTING FALLBACK
+    //
+    //  Production: parse the Switchboard randomness account and
+    //  read the VRF value. NO FALLBACK — if VRF not ready, tx fails.
+    //
+    //  Testing (cfg feature = "testing"): if Switchboard parsing
+    //  fails (mock account), use a deterministic seed so tests
+    //  can run without a real Switchboard oracle.
+    // =========================================================
+
     msg!("Using Switchboard VRF (production path)");
 
     // Validate account matches the one registered in request_randomness
@@ -77,26 +88,63 @@ pub fn handler(ctx: Context<CloseDraw>) -> Result<()> {
         MegabytError::InvalidDrawState
     );
 
-    let randomness_data = RandomnessAccountData::parse(
-        ctx.accounts.randomness_account_data.data.borrow()
-    ).map_err(|_| {
-        msg!("ERROR: Switchboard account parse failed");
-        MegabytError::InvalidDrawState
-    })?;
+    let seed: [u8; 32];
 
-    let seed = get_randomness_with_tolerance(
-        &randomness_data,
-        clock.slot
-    ).map_err(|e| {
-        msg!("ERROR: VRF not fulfilled yet. Wait for oracle.");
-        e
-    })?;
+    #[cfg(not(feature = "testing"))]
+    {
+        let randomness_data = RandomnessAccountData::parse(
+            ctx.accounts.randomness_account_data.data.borrow()
+        ).map_err(|_| {
+            msg!("ERROR: Switchboard account parse failed");
+            MegabytError::InvalidDrawState
+        })?;
 
-    // Mark fulfilled ONLY after real VRF confirmed
-    draw.randomness_fulfilled = true;
-    draw.random_seed = seed;
+        seed = get_randomness_with_tolerance(
+            &randomness_data,
+            clock.slot
+        ).map_err(|e| {
+            msg!("ERROR: VRF not fulfilled yet. Wait for oracle.");
+            e
+        })?;
 
-    msg!("seed={:?}", &seed[..8]);
+        draw.randomness_fulfilled = true;
+        draw.random_seed = seed;
+
+        msg!("seed={:?}", &seed[..8]);
+    }
+
+    #[cfg(feature = "testing")]
+    {
+        seed = match RandomnessAccountData::parse(
+            ctx.accounts.randomness_account_data.data.borrow()
+        ) {
+            Ok(randomness_data) => {
+                match get_randomness_with_tolerance(&randomness_data, clock.slot) {
+                    Ok(vrf_seed) => {
+                        msg!("VRF slot atual OK (testing mode)");
+                        vrf_seed
+                    }
+                    Err(_) => {
+                        msg!("VRF not fulfilled, using deterministic test seed");
+                        let mut s = [0u8; 32];
+                        for i in 0..32 { s[i] = (i as u8).wrapping_add(1); }
+                        s
+                    }
+                }
+            }
+            Err(_) => {
+                msg!("Switchboard parse failed, using deterministic test seed");
+                let mut s = [0u8; 32];
+                for i in 0..32 { s[i] = (i as u8).wrapping_add(1); }
+                s
+            }
+        };
+
+        draw.randomness_fulfilled = true;
+        draw.random_seed = seed;
+
+        msg!("seed={:?}", &seed[..8]);
+    }
 
     // =========================================================
     //  GERAR RESULTADO
