@@ -164,7 +164,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
   </div>
   <div class="hdr-right">
     <span class="badge badge-live" id="bLive" style="display:none">● LIVE</span>
-    <span class="badge badge-net" id="bNet" style="display:none">DEVNET</span>
+    <span class="badge badge-net" id="bNet" style="display:none">LOCALNET</span>
     <button class="w-btn w-connect" id="wBtn" onclick="doConnect()">Connect Phantom</button>
   </div>
 </div>
@@ -294,7 +294,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 
 <div class="footer">
   MegaByt Protocol — Verifiable Value Redistribution — Fully On-Chain<br>
-  <a href="https://explorer.solana.com/address/2sq5GDjs2ESDEK2Jpec7je2aAnVJ2w7uZgM1Qh5GgpmS?cluster=devnet" target="_blank">Program ↗</a>
+  <a href="https://explorer.solana.com/address/2sq5GDjs2ESDEK2Jpec7je2aAnVJ2w7uZgM1Qh5GgpmS?cluster=custom&customUrl=http://127.0.0.1:8899" target="_blank">Program ↗</a>
 </div>
 </div>
 
@@ -320,7 +320,7 @@ window.addEventListener("unhandledrejection", function(e){
 });
 
 var PROG       = "2sq5GDjs2ESDEK2Jpec7je2aAnVJ2w7uZgM1Qh5GgpmS";
-var RPC        = "https://api.devnet.solana.com";
+var RPC        = "http://127.0.0.1:8899";
 var VAULT_ADDR = "8sEKCpLjLLZzRjwKXfn5ubYhuJu2jdYFa5ngqbTyw7mz";
 var GS_ADDR    = "AUJCkNYLRPLxBzrPZAjp64i22kcSFNh4aNJ5uiNNTiDv";
 var TOKPROG    = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
@@ -398,6 +398,15 @@ function safeJsonParse(str,fallback){try{return JSON.parse(str)}catch(e){return 
 function findDraw(id){return PK.findProgramAddressSync([enc("draw-v3"), wU64(id)], progId)[0]}
 function findUserDrawState(drawKey, userKey){
   return PK.findProgramAddressSync([enc("user-draw"), drawKey.toBytes(), userKey.toBytes()], progId)[0]
+}
+function findUserGlobalState(userKey){
+  return PK.findProgramAddressSync([enc("user-global-v3"), userKey.toBytes()], progId)[0]
+}
+function findTicket(drawKey, userKey, index){
+  return PK.findProgramAddressSync([enc("ticket"), drawKey.toBytes(), userKey.toBytes(), wU32(index)], progId)[0]
+}
+function findATA(mint, owner){
+  return PK.findProgramAddressSync([owner.toBytes(), tokProg.toBytes(), mint.toBytes()], ataProg)[0]
 }
 
 var chipEl = document.getElementById("cBox");
@@ -659,7 +668,7 @@ function renderDrawData(){
   document.getElementById("vS").textContent = toHex(drawRaw.slice(O_D_SEED, O_D_SEED + 32));
   var cs = rU64(drawRaw, O_D_SLOT);
   document.getElementById("vL").textContent = cs > 0 ? cs.toString() : "—";
-  document.getElementById("eL").href = "https://explorer.solana.com/address/" + drawPda.toBase58() + "?cluster=devnet";
+  document.getElementById("eL").href = "https://explorer.solana.com/address/" + drawPda.toBase58() + "?cluster=custom&customUrl=http://127.0.0.1:8899";
 }
 
 /* ===== HISTORY ===== */
@@ -786,6 +795,7 @@ async function doBuy(){
 
   try{
     var userDrawPda = findUserDrawState(drawPda, wallet);
+    var userGlobalStatePda = findUserGlobalState(wallet);
     var ticketIndex = 0;
 
     try{
@@ -850,6 +860,7 @@ async function doBuy(){
       { pubkey: gsPda,       isSigner: false, isWritable: true  },
       { pubkey: drawPda,     isSigner: false, isWritable: true  },
       { pubkey: userDrawPda, isSigner: false, isWritable: true  },
+      { pubkey: userGlobalStatePda, isSigner: false, isWritable: true  },
       { pubkey: ticketPda,   isSigner: false, isWritable: true  },
       { pubkey: userAta,     isSigner: false, isWritable: true  },
       { pubkey: vaultPk,     isSigner: false, isWritable: true  },
@@ -882,7 +893,7 @@ async function doBuy(){
     btn.className = "bb success";
 
     addLog("CONFIRMED — Ticket #" + ticketIndex + " for Draw #" + drawId, "lok");
-    addLogHtml('<span class="lok">[' + new Date().toLocaleTimeString() + '] </span><a class="tl" href="https://explorer.solana.com/tx/' + sig + '?cluster=devnet" target="_blank">' + sig.slice(0, 44) + '… ↗</a>');
+    addLogHtml('<span class="lok">[' + new Date().toLocaleTimeString() + '] </span><a class="tl" href="https://explorer.solana.com/tx/' + sig + '?cluster=custom&customUrl=http://127.0.0.1:8899" target="_blank">' + sig.slice(0, 44) + '… ↗</a>');
 
     recordBetHistory({
       drawId: drawId,
@@ -949,22 +960,4 @@ if(window.solana && window.solana.isPhantom){
 </script>
 <script src="./demo-buttons.js"></script>
 </body>
-<script>setInterval(function(){location.reload();},10000);</script>
 </html>
-
-
-<div id="matchBox" style="margin:10px 0;padding:10px;background:#111;border:1px solid #333;border-radius:8px;font-size:12px">Match: —</div>
-<script>setInterval(function(){try{if(!window.drawRaw||!window.selectedNumbers)return;var res=[];for(var i=0;i<6;i++)res.push(window.drawRaw[117+i]);var matches=window.selectedNumbers.filter(function(n){return res.includes(n);});var txt="Matched: "+matches.length+" numbers";var el=document.getElementById("matchBox");if(el)el.textContent=txt;}catch(e){console.log(e);}},2000);</script>
-
-      return res.includes(n);
-    });
-
-    var txt = "Matched: " + matches.length + " numbers";
-
-    var el = document.getElementById("matchBox");
-    if(el) el.textContent = txt;
-
-  } catch(e){ console.log(e); }
-}, 2000);
-</script>
-

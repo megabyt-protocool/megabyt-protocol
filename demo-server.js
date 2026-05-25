@@ -30,8 +30,8 @@ const server = http.createServer((req, res) => {
   if (req.url === "/open-draw") {
     const cmd = `
 cd ~/projects/megabyt && \\
-ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \\
-ANCHOR_WALLET=~/.config/solana/id.json \\
+ANCHOR_PROVIDER_URL=http://127.0.0.1:8899 \\
+ANCHOR_WALLET=/mnt/c/Users/becke/temp.json \\
 DURATION=110 \\
 npx ts-node --transpile-only scripts/open-draw.ts
 `;
@@ -43,8 +43,8 @@ npx ts-node --transpile-only scripts/open-draw.ts
   if (req.url === "/close-draw") {
     const cmd = `
 cd ~/projects/megabyt && \\
-ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \\
-ANCHOR_WALLET=~/.config/solana/id.json \\
+ANCHOR_PROVIDER_URL=http://127.0.0.1:8899 \\
+ANCHOR_WALLET=/mnt/c/Users/becke/temp.json \\
 npx ts-node --transpile-only scripts/demo-close-current-draw.ts
 `;
     return run(cmd, res);
@@ -54,8 +54,8 @@ npx ts-node --transpile-only scripts/demo-close-current-draw.ts
   if (req.url === "/run-demo") {
     const cmd = `
 cd ~/projects/megabyt && \\
-ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \\
-ANCHOR_WALLET=~/.config/solana/id.json \\
+ANCHOR_PROVIDER_URL=http://127.0.0.1:8899 \\
+ANCHOR_WALLET=/mnt/c/Users/becke/temp.json \\
 TICKETS=25 \\
 MULTI=5 \\
 DURATION=110 \\
