@@ -32,6 +32,7 @@ const {
   getAccount,
   createTransferInstruction,
   createAssociatedTokenAccountInstruction,
+  createMintToInstruction,
 } = require("@solana/spl-token");
 
 const IDL = require("../target/idl/megabyt.json");
@@ -141,12 +142,14 @@ async function main() {
   const TP = await detectTP(conn, MINT);
   const tp = Number(pick(gd, "ticketPrice", "ticket_price"));
   const did = Number(pick(gd, "currentDrawId", "current_draw_id") || 0);
+  const cryptoMax = Number(pick(gd, "cryptoCount", "crypto_count") || 10);
   const adminBal = await conn.getBalance(wallet.publicKey);
 
   log("BOOT", "GlobalState:  " + gs.toBase58());
   log("BOOT", "Mint:         " + MINT.toBase58());
   log("BOOT", "TicketPrice:  " + tp);
   log("BOOT", "DrawID:       " + did);
+  log("BOOT", "CryptoMax:    " + cryptoMax);
   log("BOOT", "Admin SOL:    " + (adminBal / LAMPORTS_PER_SOL).toFixed(4));
   console.log("");
 
@@ -183,6 +186,14 @@ async function main() {
   step(2, "BUY " + TICKETS + " TICKETS (" + MULTI + " per user)");
 
   const adminAta = await ensureAta(conn, wallet, MINT, wallet.publicKey, TP);
+
+  // Mint tokens to admin for distribution
+  const totalTokensNeeded = tp * TICKETS;
+  const mintAmount = Math.max(totalTokensNeeded, 50_000_000); // min 50M tokens
+  const mintIx = createMintToInstruction(MINT, adminAta, wallet.publicKey, mintAmount, [], TP);
+  await sendAndConfirmTransaction(conn, new Transaction().add(mintIx), [wallet]);
+  log("MINT", "Admin funded: " + mintAmount + " tokens");
+
   const usersNeeded = Math.ceil(TICKETS / MULTI);
   const users: any[] = [];
 
@@ -236,6 +247,11 @@ async function main() {
           program.programId
         )[0];
 
+        const ugs = PublicKey.findProgramAddressSync(
+          [Buffer.from("user-global-v3"), u.publicKey.toBuffer()],
+          program.programId
+        )[0];
+
         const currentIdx = m;
         const idxBuf = Buffer.alloc(4);
         idxBuf.writeUInt32LE(currentIdx, 0);
@@ -249,16 +265,17 @@ async function main() {
 
         const nums = new Set<number>();
         while (nums.size < 6) nums.add(Math.floor(Math.random() * 72) + 1);
-        const cry = Math.floor(Math.random() * 10) + 1;
+        const cry = Math.floor(Math.random() * cryptoMax) + 1;
 
         try {
           await program.methods
-            .buyTicket(Array.from(nums), cry)
+            .buyTicket(Buffer.from(Array.from(nums)), cry)
             .accounts({
               user: u.publicKey,
               globalState: gs,
               drawState: drawPda,
               userDrawState: uds,
+              userGlobalState: ugs,
               ticket: tPda,
               userTokenAccount: uAta,
               prizeVault: pv,
@@ -332,6 +349,8 @@ async function main() {
   await program.methods
     .requestRandomness()
     .accounts({
+      admin: wallet.publicKey,
+      globalState: gs,
       draw: drawPda,
       randomnessAccount: rKp.publicKey,
     })
@@ -343,16 +362,9 @@ async function main() {
     const seed: number[] = [];
     for (let ms = 0; ms < 32; ms++) seed.push(Math.floor(Math.random() * 256));
 
-    await program.methods
-      .fulfillRandomness(seed)
-      .accounts({
-        admin: wallet.publicKey,
-        globalState: gs,
-        draw: drawPda,
-      })
-      .rpc();
-
-    log("OK", "Fulfilled (test seed)");
+    // Em mode "test", o close_draw usa fallback determinístico (feature "testing")
+    // Não precisamos mais de fulfillRandomness - ela não existe no programa
+    log("OK", "Test mode - randomness será fulfilled no close_draw");
   } else {
     log("WAIT", "Waiting 15s for Switchboard VRF...");
     await sleep(15000);
@@ -368,6 +380,7 @@ async function main() {
   await program.methods
     .closeDraw()
     .accounts({
+      admin: wallet.publicKey,
       globalState: gs,
       draw: drawPda,
       randomnessAccountData: rKp.publicKey,
@@ -401,6 +414,8 @@ async function main() {
     await program.methods
       .settleTickets(rem.length)
       .accounts({
+        admin: wallet.publicKey,
+        globalState: gs,
         draw: drawPda,
       })
       .remainingAccounts(rem)
@@ -429,6 +444,7 @@ async function main() {
   await program.methods
     .finalizePayouts()
     .accounts({
+      admin: wallet.publicKey,
       globalState: gs,
       draw: drawPda,
     })
