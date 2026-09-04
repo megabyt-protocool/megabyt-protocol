@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use crate::constants::MONTHLY_CYCLE_DURATION_SECONDS;
 use crate::state::GlobalState;
 
 pub fn handler(
@@ -8,6 +9,7 @@ pub fn handler(
     usdt_mint: Pubkey,
     byti_mint: Pubkey,
 ) -> Result<()> {
+    let clock = Clock::get()?;
     let global = &mut ctx.accounts.global_state;
 
     global.admin = ctx.accounts.admin.key();
@@ -51,8 +53,11 @@ pub fn handler(
     global.admin_usdt_vault = Pubkey::default();
 
     global.monthly_pool = 0;
-    global.monthly_cycle_start = 0;
-    global.monthly_cycle_duration = 0;
+    // Antes ficava 0/0, o que fazia cycle_end = start+duration = 0 e o
+    // rollover em close_draw.rs disparar em TODA fechada de sorteio (ver
+    // MONTHLY_CYCLE_DURATION_SECONDS em constants.rs).
+    global.monthly_cycle_start = clock.unix_timestamp;
+    global.monthly_cycle_duration = MONTHLY_CYCLE_DURATION_SECONDS;
     global.last_monthly_rollover_at = 0;
     global.monthly_cycles_completed = 0;
 

@@ -15,6 +15,14 @@ pub const CRYPTO_SOL: u8 = 8;
 pub const CRYPTO_TRX: u8 = 9;
 pub const CRYPTO_DOGE: u8 = 10;
 
+// ===== MONTHLY CYCLE =====
+/// Duracao padrao de um ciclo mensal (30 dias em segundos). Usado em
+/// initialize.rs pra popular global_state.monthly_cycle_duration — antes
+/// ficava zerado, o que fazia o rollover em close_draw.rs disparar em
+/// TODO fechamento de sorteio (cycle_end = start + 0 = start, sempre no
+/// passado), inflando monthly_cycles_completed sem sentido.
+pub const MONTHLY_CYCLE_DURATION_SECONDS: i64 = 30 * 24 * 3600;
+
 // ===== PHASE SYSTEM =====
 // 10 levels of emission + game expansion
 // Each phase requires a minimum number of active users (wallets with 2+ tickets)

@@ -34,6 +34,14 @@ pub mod megabyt {
         instructions::initialize_vaults::handler(ctx)
     }
 
+    pub fn init_monthly_state(ctx: Context<InitMonthlyState>) -> Result<()> {
+        instructions::init_monthly_state::handler(ctx)
+    }
+
+    pub fn init_monthly_vault(ctx: Context<InitMonthlyVault>) -> Result<()> {
+        instructions::init_monthly_vault::handler(ctx)
+    }
+
     pub fn open_draw(ctx: Context<OpenDraw>, duration: i64) -> Result<()> {
         instructions::open_draw::handler(ctx, duration)
     }
