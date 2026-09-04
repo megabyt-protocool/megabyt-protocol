@@ -3,6 +3,7 @@ use anchor_lang::prelude::*;
 pub mod constants;
 pub mod error;
 pub mod instructions;
+pub mod randomness;
 pub mod state;
 pub mod validation;
 
@@ -52,6 +53,14 @@ pub mod megabyt {
         last_draw_id: u64,
     ) -> Result<()> {
         instructions::open_monthly_draw::handler(ctx, first_draw_id, last_draw_id)
+    }
+
+    pub fn request_monthly_randomness(ctx: Context<RequestMonthlyRandomness>) -> Result<()> {
+        instructions::request_monthly_randomness::handler(ctx)
+    }
+
+    pub fn close_monthly_draw(ctx: Context<CloseMonthlyDraw>) -> Result<()> {
+        instructions::close_monthly_draw::handler(ctx)
     }
 
     pub fn buy_ticket(
