@@ -13,6 +13,7 @@ pub fn handler(ctx: Context<InitMonthlyState>) -> Result<()> {
     monthly_state.total_monthly_draws = 0;
     monthly_state.jackpot_carry = 0;
     monthly_state.last_monthly_open_at = 0;
+    monthly_state.last_covered_draw_id = 0;
     monthly_state.bump = ctx.bumps.monthly_state;
 
     msg!("MONTHLY STATE INITIALIZED");

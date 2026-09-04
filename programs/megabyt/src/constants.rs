@@ -23,6 +23,12 @@ pub const CRYPTO_DOGE: u8 = 10;
 /// passado), inflando monthly_cycles_completed sem sentido.
 pub const MONTHLY_CYCLE_DURATION_SECONDS: i64 = 30 * 24 * 3600;
 
+/// Teto de sorteios diarios que um unico sorteio mensal pode cobrir.
+/// Limita compute e tamanho de transacao em open_monthly_draw (cada draw
+/// do range vem em remaining_accounts). ~30 draws/mes e o caso normal;
+/// 40 da folga sem deixar o range crescer sem limite.
+pub const MAX_DRAWS_PER_MONTH: u64 = 40;
+
 // ===== PHASE SYSTEM =====
 // 10 levels of emission + game expansion
 // Each phase requires a minimum number of active users (wallets with 2+ tickets)

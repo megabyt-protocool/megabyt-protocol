@@ -281,7 +281,9 @@ pub struct MonthlyState {
     /// prize_vault diario, alimentado por um sweep em close_draw numa
     /// etapa futura). Pubkey::default() ate init_monthly_vault rodar.
     pub monthly_vault: Pubkey,
-    /// Id do proximo sorteio mensal a ser aberto (0 = nenhum aberto ainda).
+    /// Id do ULTIMO sorteio mensal criado (0 = nenhum aberto ainda) — mesma
+    /// semantica de global_state.current_draw_id (open_monthly_draw usa
+    /// current_monthly_id + 1 como id do novo sorteio).
     pub current_monthly_id: u64,
     /// Quantos sorteios mensais ja foram concluidos.
     pub total_monthly_draws: u64,
@@ -291,6 +293,11 @@ pub struct MonthlyState {
     /// este campo e so pra visibilidade/auditoria.
     pub jackpot_carry: u64,
     pub last_monthly_open_at: i64,
+    /// Ultimo draw_id (diario) ja coberto por algum sorteio mensal (0 =
+    /// nenhum ainda). open_monthly_draw exige que o proximo range comece
+    /// exatamente em last_covered_draw_id + 1 — impede gap ou sobreposicao
+    /// entre meses consecutivos. So nao se aplica no primeiro mes (0).
+    pub last_covered_draw_id: u64,
     pub bump: u8,
 }
 
@@ -300,6 +307,7 @@ impl MonthlyState {
         + 8 + 8 // current_monthly_id + total_monthly_draws
         + 8     // jackpot_carry
         + 8     // last_monthly_open_at
+        + 8     // last_covered_draw_id
         + 1;    // bump
 }
 

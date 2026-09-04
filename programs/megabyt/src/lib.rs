@@ -46,6 +46,14 @@ pub mod megabyt {
         instructions::open_draw::handler(ctx, duration)
     }
 
+    pub fn open_monthly_draw<'info>(
+        ctx: Context<'_, '_, 'info, 'info, OpenMonthlyDraw<'info>>,
+        first_draw_id: u64,
+        last_draw_id: u64,
+    ) -> Result<()> {
+        instructions::open_monthly_draw::handler(ctx, first_draw_id, last_draw_id)
+    }
+
     pub fn buy_ticket(
         ctx: Context<BuyTicket>,
         numbers: Vec<u8>,

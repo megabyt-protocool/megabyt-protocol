@@ -134,4 +134,12 @@ pub enum MegabytError {
 
     #[msg("Too many crypto selections for current phase")]
     TooManyCryptos,
+
+    // === MONTHLY DRAW ERRORS ===
+
+    #[msg("Invalid monthly draw range (empty, too large, gap, overlap or duplicate)")]
+    InvalidMonthlyRange,
+
+    #[msg("Invalid monthly vault")]
+    InvalidMonthlyVault,
 }
