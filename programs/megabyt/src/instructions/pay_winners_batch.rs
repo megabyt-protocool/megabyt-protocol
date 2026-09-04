@@ -21,7 +21,16 @@ pub fn handler<'info>(
     let program_id = ctx.program_id;
     let draw_key = ctx.accounts.draw.key();
 
-    require!(ctx.accounts.draw.status == 3, MegabytError::DrawNotReady);
+    // Aceita status 3 (finalizado, pagamento em andamento) OU 4 (ja totalmente
+    // pago). Isso e o que torna o reenvio do LOTE inteiro idempotente: sem
+    // isso, reenviar exatamente o lote que completa o draw (status 3 -> 4)
+    // seria rejeitado com DrawNotReady mesmo sem nada de errado ter
+    // acontecido, so porque o guard barrava antes de chegar no loop que
+    // pula tickets ja pagos.
+    require!(
+        ctx.accounts.draw.status == 3 || ctx.accounts.draw.status == 4,
+        MegabytError::DrawNotReady
+    );
 
     let total_winners: u64 = ctx
         .accounts
