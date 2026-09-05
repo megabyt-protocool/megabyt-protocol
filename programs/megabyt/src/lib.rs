@@ -3,6 +3,7 @@ use anchor_lang::prelude::*;
 pub mod constants;
 pub mod error;
 pub mod instructions;
+pub mod payouts;
 pub mod randomness;
 pub mod scoring;
 pub mod state;
@@ -107,6 +108,10 @@ pub mod megabyt {
         batch_size: u32,
     ) -> Result<()> {
         instructions::settle_tickets::handler(ctx, batch_size)
+    }
+
+    pub fn finalize_monthly_payouts(ctx: Context<FinalizeMonthlyPayouts>) -> Result<()> {
+        instructions::finalize_monthly_payouts::handler(ctx)
     }
 
     pub fn finalize_payouts(ctx: Context<FinalizePayouts>) -> Result<()> {

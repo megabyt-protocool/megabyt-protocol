@@ -29,6 +29,13 @@ pub const MONTHLY_CYCLE_DURATION_SECONDS: i64 = 30 * 24 * 3600;
 /// 40 da folga sem deixar o range crescer sem limite.
 pub const MAX_DRAWS_PER_MONTH: u64 = 40;
 
+/// Minimo de 1 USDT (6 decimais) por premio individual. Mesma regra e
+/// mesmo valor da constante privada MIN_PRIZE_PER_WINNER em
+/// finalize_payouts.rs (diario) — copiada aqui pra finalize_monthly_payouts.rs
+/// nao precisar de um numero magico solto. A constante do diario nao foi
+/// tocada.
+pub const MIN_PRIZE_PER_WINNER: u64 = 1_000_000;
+
 // ===== PHASE SYSTEM =====
 // 10 levels of emission + game expansion
 // Each phase requires a minimum number of active users (wallets with 2+ tickets)
