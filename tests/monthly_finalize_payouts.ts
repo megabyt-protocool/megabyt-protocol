@@ -11,32 +11,25 @@ import {
 import { Megabyt } from "../target/types/megabyt";
 
 /**
- * Fecha a Sub-etapa 3D: testes de integração de finalize_monthly_payouts,
- * com dinheiro rodando de verdade (não só os testes unitários Rust já
- * feitos no WIP anterior).
- *
- * Agora que crypto_count=10 (mudança da sessão anterior), o cenário de
- * JACKPOT COM GANHADOR passou a ser alcançável pelo pipeline completo:
- * o seed determinístico de teste sempre produz result_crypto=9, e agora
- * dá pra comprar um ticket com crypto=9 de verdade.
+ * Sub-etapas 3D (finalize_monthly_payouts) e 3E (pay_monthly_winners_batch):
+ * testes de integração com dinheiro rodando de verdade.
  *
  *  MONTHLY DRAW A — jackpot COM ganhador + cascata com gap + anti-dust:
- *   1. Jackpot: 2 tickets com 6 acertos E crypto=9 (crypto_hit=true).
- *   3. Cascata: só tier 3 (1 vencedor) e tier 9 (50 vencedores) têm
- *      ganhador — tiers 1,2 cascateiam pra 3; tiers 4..8 cascateiam pra 9.
- *      Tier 9 tem vencedores demais pro pool dele: dispara anti-dust.
- *   4. Conservação calculada e comparada com um espelho em TS da mesma
- *      matemática de cascade_and_divide/split_evenly (payouts.rs).
- *   5. Sweep-espelho (monthly_vault -> prize_vault) conferido com saldos
- *      SPL reais, e status 2 -> 3.
+ *   Jackpot: 2 tickets com 6 acertos E crypto=9. Cascata: tier 3 (1 vencedor,
+ *   acima do mínimo) e tier 9 (50 vencedores → anti-dust). finalize + pay em
+ *   lote, valores por tier, conservação, sweep-espelho, idempotência, 3→4.
  *
  *  MONTHLY DRAW B — jackpot SEM ganhador:
- *   2. Ninguém acerta o tier 0. jackpot_pool inteiro rola.
+ *   Ninguém acerta o tier 0; jackpot_pool inteiro rola. tier 5 zerado por
+ *   anti-dust. pay processa e fecha o ciclo.
  *
- *  Ao final: finalize de novo (status 3) falha — não é idempotente,
- *  operação única (decisão já aprovada no plano da 3D).
+ *  MONTHLY DRAW C — jackpot SEM ganhador + cascata (tier 3) COM ganhador e
+ *   prêmio ACIMA de $1 (sem anti-dust). Prova ISOLADA da regra central: um
+ *   jackpot sem ganhador NÃO impede a cascata de pagar os tiers de baixo —
+ *   o tier 3 recebe de verdade no pay_monthly_winners_batch com
+ *   jackpot_hit=false.
  */
-describe("monthly_finalize_payouts — fechamento da Sub-etapa 3D", () => {
+describe("monthly_finalize_payouts + pay_monthly_winners_batch — Sub-etapas 3D e 3E", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
@@ -200,34 +193,118 @@ describe("monthly_finalize_payouts — fechamento da Sub-etapa 3D", () => {
     return picks;
   }
 
+  // Retry com backoff pra erros transientes do validador local ("Blockhash
+  // not found" etc) — o validador fica mais lento conforme a suíte avança e
+  // um blockhash pode expirar entre buscar e enviar. Mesma lição do
+  // set_crypto_count.ts.
+  async function withRetry<T>(fn: () => Promise<T>, label: string, attempts = 5): Promise<T> {
+    let lastErr: any;
+    for (let i = 1; i <= attempts; i++) {
+      try {
+        return await fn();
+      } catch (e: any) {
+        lastErr = e;
+        const msg = e?.message || String(e);
+        // Só erros em que a tx comprovadamente NÃO entrou (senão um retry de
+        // buyTicket bateria em "account already exists" e falharia de vez).
+        const transient = /Blockhash not found|failed to get recent blockhash|429|Too Many Requests|Node is behind|Connection rate limits exceeded/i.test(msg);
+        if (!transient || i === attempts) throw e;
+        console.log(`      [retry] ${label} tentativa ${i}/${attempts}: ${msg.split("\n")[0]}`);
+        await new Promise((r) => setTimeout(r, 400 * i));
+      }
+    }
+    throw lastErr;
+  }
+
   async function fundWallet(
     mintPk: PublicKey,
     tokenAmount: number
   ): Promise<{ kp: Keypair; ata: PublicKey }> {
     const kp = Keypair.generate();
-    const sig = await connection.requestAirdrop(kp.publicKey, anchor.web3.LAMPORTS_PER_SOL);
-    await connection.confirmTransaction(sig, "confirmed");
-    const ata = await createAccount(connection, admin, mintPk, kp.publicKey);
-    await mintTo(connection, admin, mintPk, ata, admin, tokenAmount);
+    await withRetry(async () => {
+      const sig = await connection.requestAirdrop(kp.publicKey, 2 * anchor.web3.LAMPORTS_PER_SOL);
+      await connection.confirmTransaction(sig, "confirmed");
+    }, "airdrop");
+    const ata = await withRetry(() => createAccount(connection, admin, mintPk, kp.publicKey), "createAccount");
+    await withRetry(() => mintTo(connection, admin, mintPk, ata, admin, tokenAmount), "mintTo");
     return { kp, ata };
   }
 
   type DrawRef = { id: anchor.BN; pda: PublicKey };
-  type TicketRef = { pda: PublicKey; owner: PublicKey; numbers: number[] };
+  type TicketRef = { pda: PublicKey; owner: PublicKey; numbers: number[]; ata: PublicKey };
+
+  // MonthlyClaim não está no IDL (nunca é Account<'info, MonthlyClaim> numa
+  // struct de Accounts — settle_monthly_tickets a cria à mão). Decodificamos
+  // os bytes manualmente, igual ao monthly_settle_tickets.ts.
+  type MonthlyClaimData = {
+    monthlyDraw: PublicKey;
+    ticket: PublicKey;
+    owner: PublicKey;
+    tier: number;
+    paid: boolean;
+    bump: number;
+  };
+
+  async function fetchMonthlyClaim(pda: PublicKey): Promise<MonthlyClaimData> {
+    const info = await connection.getAccountInfo(pda);
+    if (!info) throw new Error(`MonthlyClaim não encontrada: ${pda.toBase58()}`);
+    const data = info.data;
+    let offset = 8;
+    const monthlyDraw = new PublicKey(data.subarray(offset, offset + 32)); offset += 32;
+    const ticket = new PublicKey(data.subarray(offset, offset + 32)); offset += 32;
+    const owner = new PublicKey(data.subarray(offset, offset + 32)); offset += 32;
+    const tier = data.readUInt8(offset); offset += 1;
+    const paid = data.readUInt8(offset) !== 0; offset += 1;
+    const bump = data.readUInt8(offset);
+    return { monthlyDraw, ticket, owner, tier, paid, bump };
+  }
+
+  // Paga vencedores do mensal em lotes de PARES [claim, ata]. ~10 pares/tx
+  // por causa do limite de 1232 bytes da transação legada (mesma regra do
+  // settle_monthly_tickets).
+  async function payMonthlyAll(
+    monthlyDrawPda: PublicKey,
+    tickets: TicketRef[]
+  ): Promise<void> {
+    const PAY_BATCH = 10;
+    for (let offset = 0; offset < tickets.length; offset += PAY_BATCH) {
+      const chunk = tickets.slice(offset, offset + PAY_BATCH);
+      const remainingAccounts = chunk.flatMap((t) => {
+        const claimPda = getMonthlyClaimPDA(monthlyDrawPda, t.pda);
+        return [
+          { pubkey: claimPda, isWritable: true, isSigner: false },
+          { pubkey: t.ata, isWritable: true, isSigner: false },
+        ];
+      });
+      await (program.methods
+        .payMonthlyWinnersBatch(chunk.length)
+        .accounts as any)({
+          admin: admin.publicKey,
+          globalState,
+          monthlyState,
+          monthlyDraw: monthlyDrawPda,
+          monthlyVault,
+          vaultAuthority,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        }).remainingAccounts(remainingAccounts)
+          .preInstructions([CU_LIMIT_IX])
+          .rpc();
+    }
+  }
 
   async function openDrawOnly(): Promise<DrawRef> {
     const gs: any = await program.account.globalState.fetch(globalState);
     const nextId = new anchor.BN(gs.currentDrawId || 0).add(new anchor.BN(1));
     const pda = getDrawPDA(nextId);
 
-    await (program.methods
+    await withRetry(() => (program.methods
       .openDraw(new anchor.BN(3600))
       .accounts as any)({
         admin: admin.publicKey,
         globalState,
         drawState: pda,
         systemProgram: SystemProgram.programId,
-      }).rpc();
+      }).rpc(), "openDraw");
 
     return { id: nextId, pda };
   }
@@ -245,7 +322,7 @@ describe("monthly_finalize_payouts — fechamento da Sub-etapa 3D", () => {
     const tickets: TicketRef[] = [];
     for (let i = 0; i < count; i++) {
       const ticketPda = getTicketPDA(drawPda, kp.publicKey, i);
-      await (program.methods
+      await withRetry(() => (program.methods
         .buyTicket(Buffer.from(numbers), crypto)
         .accounts as any)({
           user: kp.publicKey,
@@ -258,8 +335,8 @@ describe("monthly_finalize_payouts — fechamento da Sub-etapa 3D", () => {
           prizeVault,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
-        }).signers([kp]).rpc();
-      tickets.push({ pda: ticketPda, owner: kp.publicKey, numbers });
+        }).signers([kp]).rpc(), `buyTicket#${i}`);
+      tickets.push({ pda: ticketPda, owner: kp.publicKey, numbers, ata });
     }
     return tickets;
   }
@@ -267,23 +344,23 @@ describe("monthly_finalize_payouts — fechamento da Sub-etapa 3D", () => {
   async function closeDrawFor(draw: DrawRef): Promise<[number[], number]> {
     const randomnessKp = Keypair.generate();
 
-    await (program.methods
+    await withRetry(() => (program.methods
       .requestRandomness()
       .accounts as any)({
         admin: admin.publicKey,
         globalState,
         draw: draw.pda,
         randomnessAccount: randomnessKp.publicKey,
-      }).rpc();
+      }).rpc(), "requestRandomness");
 
-    await (program.methods
+    await withRetry(() => (program.methods
       .closeDraw()
       .accounts as any)({
         admin: admin.publicKey,
         globalState,
         draw: draw.pda,
         randomnessAccountData: randomnessKp.publicKey,
-      }).preInstructions([CU_LIMIT_IX]).rpc();
+      }).preInstructions([CU_LIMIT_IX]).rpc(), "closeDraw");
 
     const drawAccount: any = await program.account.draw.fetch(draw.pda);
     return [
@@ -658,6 +735,89 @@ describe("monthly_finalize_payouts — fechamento da Sub-etapa 3D", () => {
     expect(errText).to.match(/DrawNotReady/);
   });
 
+  it("pay A (3E): paga jackpot + cascata em lote, valores por tier certos, tier 255 não recebe, idempotência, status 3→4", async function () {
+    this.timeout(180_000);
+
+    const md: any = await program.account.monthlyDraw.fetch(monthlyDrawAPda);
+    expect(Number(md.status)).to.equal(3, "pré-condição: draw A finalizada (status 3)");
+
+    const prizePerTier = md.monthlyPrizePerTier.map((x: any) => BigInt(x.toString()));
+    const jackpotPrize = prizePerTier[0];
+    const tier3Prize = prizePerTier[3];
+    const tier9Prize = prizePerTier[9];
+    expect(jackpotPrize > 0n).to.equal(true, "jackpot individual deveria ser > 0");
+    expect(tier3Prize >= MIN_PRIZE).to.equal(true, "tier3 deveria pagar acima do mínimo");
+    expect(tier9Prize).to.equal(0n, "tier9 foi zerado pelo anti-dust — paga 0");
+
+    const totalWinners = md.monthlyWinnerCounts
+      .map((x: any) => BigInt(x.toString()))
+      .reduce((a: bigint, b: bigint) => a + b, 0n);
+    expect(totalWinners).to.equal(53n, "2 jackpot + 1 tier3 + 50 tier9");
+
+    // ATAs (jackpot e tier3 = 1 carteira cada; tier9 = 1 carteira; discovery = 1)
+    const jackpotAta = jackpotTickets[0].ata;
+    const tier3Ata = tier3Tickets[0].ata;
+    const tier9Ata = tier9Tickets[0].ata;
+
+    const monthlyVaultBefore = await getAccount(connection, monthlyVault);
+    const jackpotAtaBefore = await getAccount(connection, jackpotAta);
+    const tier3AtaBefore = await getAccount(connection, tier3Ata);
+    const tier9AtaBefore = await getAccount(connection, tier9Ata);
+
+    // discoveryTicket é tier 255 (0 acertos) — vem no lote mas não pode receber.
+    const discoveryClaimBefore = await fetchMonthlyClaim(
+      getMonthlyClaimPDA(monthlyDrawAPda, discoveryTicket.pda)
+    );
+    expect(discoveryClaimBefore.tier).to.equal(255, "discoveryTicket deveria ser tier 255");
+    expect(discoveryClaimBefore.paid).to.equal(false);
+
+    await payMonthlyAll(monthlyDrawAPda, allTicketsA);
+
+    // Valores por tier recebidos.
+    const jackpotAtaAfter = await getAccount(connection, jackpotAta);
+    const tier3AtaAfter = await getAccount(connection, tier3Ata);
+    const tier9AtaAfter = await getAccount(connection, tier9Ata);
+    expect(jackpotAtaAfter.amount - jackpotAtaBefore.amount).to.equal(
+      jackpotPrize * 2n,
+      "carteira do jackpot tem 2 tickets vencedores"
+    );
+    expect(tier3AtaAfter.amount - tier3AtaBefore.amount).to.equal(tier3Prize);
+    expect(tier9AtaAfter.amount - tier9AtaBefore.amount).to.equal(0n, "tier9 paga 0 (anti-dust)");
+
+    // monthly_vault saiu exatamente a soma paga.
+    const totalPaid = jackpotPrize * 2n + tier3Prize + tier9Prize * 50n;
+    const monthlyVaultAfter = await getAccount(connection, monthlyVault);
+    expect(monthlyVaultBefore.amount - monthlyVaultAfter.amount).to.equal(totalPaid);
+
+    // tier 255 não recebeu e a claim não foi marcada paga.
+    const discoveryClaimAfter = await fetchMonthlyClaim(
+      getMonthlyClaimPDA(monthlyDrawAPda, discoveryTicket.pda)
+    );
+    expect(discoveryClaimAfter.paid).to.equal(false, "tier 255 não é pago nem marcado");
+    // (o vault ter saído exatamente `totalPaid`, conferido acima, já prova
+    // que nenhum prêmio foi pro loser)
+
+    // status 3 -> 4, tickets_paid == total_winners (losers não contam).
+    const mdPaid: any = await program.account.monthlyDraw.fetch(monthlyDrawAPda);
+    expect(Number(mdPaid.status)).to.equal(4);
+    expect(BigInt(mdPaid.ticketsPaid.toString())).to.equal(53n);
+
+    // Idempotência: reenviar o primeiro lote não paga de novo nem quebra.
+    const jackpotAtaReBefore = await getAccount(connection, jackpotAta);
+    const vaultReBefore = await getAccount(connection, monthlyVault);
+    await payMonthlyAll(monthlyDrawAPda, allTicketsA.slice(0, 10));
+    const jackpotAtaReAfter = await getAccount(connection, jackpotAta);
+    const vaultReAfter = await getAccount(connection, monthlyVault);
+    expect(jackpotAtaReAfter.amount - jackpotAtaReBefore.amount).to.equal(0n, "reenvio não paga em dobro");
+    expect(vaultReBefore.amount - vaultReAfter.amount).to.equal(0n);
+
+    const mdRe: any = await program.account.monthlyDraw.fetch(monthlyDrawAPda);
+    expect(Number(mdRe.status)).to.equal(4);
+    expect(BigInt(mdRe.ticketsPaid.toString())).to.equal(53n);
+
+    console.log(`    [pay A] jackpot/ticket=${jackpotPrize} tier3=${tier3Prize} tier9=0 totalPaid=${totalPaid}`);
+  });
+
   // =====================================================================
   //  MONTHLY DRAW B — jackpot SEM ganhador
   // =====================================================================
@@ -770,5 +930,236 @@ describe("monthly_finalize_payouts — fechamento da Sub-etapa 3D", () => {
     expect(Number(md.status)).to.equal(3);
 
     console.log(`    [finalize B] jackpotPool(rolou inteiro)=${jackpotPoolB} tier5=${expectedTierValues[4]} rollover=${rolloverOnChain}`);
+  });
+
+  it("pay B (3E): sem ganhador de jackpot — tier5 é processado, loser não recebe, status 3→4", async function () {
+    this.timeout(120_000);
+
+    const md: any = await program.account.monthlyDraw.fetch(monthlyDrawBPda);
+    expect(Number(md.status)).to.equal(3, "pré-condição: draw B finalizada");
+
+    const tier5Prize = BigInt(md.monthlyPrizePerTier[5].toString());
+    const totalWinners = md.monthlyWinnerCounts
+      .map((x: any) => BigInt(x.toString()))
+      .reduce((a: bigint, b: bigint) => a + b, 0n);
+    expect(totalWinners).to.equal(1n, "só tier5 tem ganhador (jackpot vazio)");
+
+    const tier5Ata = tier5TicketB.ata;
+    const tier5AtaBefore = await getAccount(connection, tier5Ata);
+    const vaultBefore = await getAccount(connection, monthlyVault);
+
+    const loserClaimBefore = await fetchMonthlyClaim(
+      getMonthlyClaimPDA(monthlyDrawBPda, loserTicketB.pda)
+    );
+    expect(loserClaimBefore.tier).to.equal(255);
+    expect(loserClaimBefore.paid).to.equal(false);
+
+    await payMonthlyAll(monthlyDrawBPda, [loserTicketB, tier5TicketB]);
+
+    const tier5AtaAfter = await getAccount(connection, tier5Ata);
+    const vaultAfter = await getAccount(connection, monthlyVault);
+    expect(tier5AtaAfter.amount - tier5AtaBefore.amount).to.equal(tier5Prize, "tier5 recebe exatamente monthly_prize_per_tier[5]");
+    expect(vaultBefore.amount - vaultAfter.amount).to.equal(tier5Prize);
+
+    const loserClaimAfter = await fetchMonthlyClaim(
+      getMonthlyClaimPDA(monthlyDrawBPda, loserTicketB.pda)
+    );
+    expect(loserClaimAfter.paid).to.equal(false, "loser (tier 255) não é pago");
+
+    const mdPaid: any = await program.account.monthlyDraw.fetch(monthlyDrawBPda);
+    expect(Number(mdPaid.status)).to.equal(4);
+    expect(BigInt(mdPaid.ticketsPaid.toString())).to.equal(1n);
+
+    console.log(`    [pay B] tier5Prize=${tier5Prize} (0 = zerado por anti-dust no finalize)`);
+  });
+
+  // =====================================================================
+  //  MONTHLY DRAW C — jackpot SEM ganhador + cascata (tier 3) COM ganhador
+  //  e prêmio ACIMA de $1 (sem anti-dust).
+  //
+  //  Prova isolada da regra central: "jackpot sem ganhador NÃO impede a
+  //  cascata de pagar os tiers de baixo". A Draw B não provava isso — lá a
+  //  cascata zerou por anti-dust, não pela regra do jackpot. Aqui o tier 3
+  //  recebe de verdade, no pay_monthly_winners_batch, com jackpot_hit=false.
+  // =====================================================================
+
+  let dC: DrawRef;
+  let tier3TicketsC: TicketRef[];
+  let fillersC: TicketRef[];
+  let allTicketsC: TicketRef[];
+  let monthlyDrawCPda: PublicKey;
+  let poolSnapshotC: bigint;
+  let jackpotPoolC: bigint;
+  let cascadePoolC: bigint;
+
+  it("monta a draw C: 60 perdedores (enchem o pool) + 1 vencedor tier3, SEM ninguém no jackpot — abre e fecha o mensal", async function () {
+    this.timeout(300_000);
+
+    dC = await openDrawOnly();
+
+    // 60 perdedores só pra inflar o monthly_pool via os 20% que entram no
+    // fechamento do sorteio diário — assim o quinhão do tier 3 fica bem
+    // acima de MIN_PRIZE ($1) e não cai no anti-esmola.
+    const loserNumbers = numbersWithHits(resultNumbers, 0, numbersCount);
+    fillersC = await buyMultipleTickets(dC.pda, loserNumbers, 1, 60);
+
+    // 1 vencedor de tier 3: deficit 1 (numbersCount-1 acertos), crypto errada.
+    const tier3Numbers = numbersWithHits(resultNumbers, numbersCount - 1, numbersCount);
+    tier3TicketsC = await buyMultipleTickets(dC.pda, tier3Numbers, 1, 1);
+
+    await closeDrawFor(dC);
+
+    const msBefore: any = await program.account.monthlyState.fetch(monthlyState);
+    expect(Number(msBefore.lastCoveredDrawId)).to.equal(dB.id.toNumber(), "pré-condição: dC contíguo com o mês B");
+    expect(dC.id.toNumber()).to.equal(dB.id.toNumber() + 1);
+
+    const nextMonthlyId = Number(msBefore.currentMonthlyId) + 1;
+    monthlyDrawCPda = getMonthlyDrawPDA(nextMonthlyId);
+
+    await openMonthlyDrawIx(dC.id, dC.id, monthlyDrawCPda, [dC.pda]).rpc();
+
+    const md: any = await program.account.monthlyDraw.fetch(monthlyDrawCPda);
+    poolSnapshotC = BigInt(md.poolSnapshot.toString());
+    jackpotPoolC = BigInt(md.jackpotPool.toString());
+    cascadePoolC = BigInt(md.cascadePool.toString());
+    expect(jackpotPoolC + cascadePoolC).to.equal(poolSnapshotC);
+    console.log(`    [draw C] poolSnapshot=${poolSnapshotC} jackpotPool=${jackpotPoolC} cascadePool=${cascadePoolC}`);
+
+    await closeMonthlyDrawFor(monthlyDrawCPda);
+    const mdAfter: any = await program.account.monthlyDraw.fetch(monthlyDrawCPda);
+    expect(Number(mdAfter.status)).to.equal(1);
+  });
+
+  it("settle todos os tickets da draw C (lotes)", async function () {
+    this.timeout(300_000);
+
+    allTicketsC = [...tier3TicketsC, ...fillersC];
+    expect(allTicketsC.length).to.equal(61);
+
+    await settleAll(monthlyDrawCPda, allTicketsC.map((t) => t.pda));
+
+    const md: any = await program.account.monthlyDraw.fetch(monthlyDrawCPda);
+    expect(Number(md.ticketsProcessed)).to.equal(61);
+    expect(Number(md.status)).to.equal(2);
+
+    const wc = md.monthlyWinnerCounts.map((x: any) => Number(x));
+    expect(wc[0]).to.equal(0, "jackpot vazio");
+    expect(wc[3]).to.equal(1, "1 vencedor no tier 3");
+    for (const tier of [1, 2, 4, 5, 6, 7, 8, 9]) {
+      expect(wc[tier]).to.equal(0, `tier ${tier} vazio`);
+    }
+  });
+
+  it("finalize da draw C: jackpot_hit=false MAS o tier 3 é alocado acima de $1 (cascata independe do jackpot)", async () => {
+    const mdBefore: any = await program.account.monthlyDraw.fetch(monthlyDrawCPda);
+    const winnerCounts1_9 = [0n, 0n, 1n, 0n, 0n, 0n, 0n, 0n, 0n]; // só tier3 (index2)
+
+    const preCascadeTierValues = MONTHLY_CASCADE_TIER_BPS.map(
+      (bps) => (cascadePoolC * bps) / MONTHLY_CASCADE_BPS_SUM
+    );
+    const closeTimeDust = cascadePoolC - preCascadeTierValues.reduce((a, b) => a + b, 0n);
+    const { values: expectedTierValues, leftover: cascadeLeftover } = cascadeAndDivide(
+      preCascadeTierValues,
+      winnerCounts1_9
+    );
+
+    // O ponto do teste: tier3 (index2) absorve o carry de tier1+tier2 e fica
+    // ACIMA do mínimo — nada a ver com o jackpot ter tido ganhador ou não.
+    expect(expectedTierValues[2] >= MIN_PRIZE).to.equal(true, "tier3 precisa ficar acima de $1 pra não cair no anti-dust");
+
+    // Sem ganhador no jackpot: jackpot_pool INTEIRO rola.
+    const expectedTotalRollover = jackpotPoolC + cascadeLeftover + closeTimeDust;
+
+    await (program.methods
+      .finalizeMonthlyPayouts()
+      .accounts as any)({
+        admin: admin.publicKey,
+        globalState,
+        monthlyState,
+        monthlyDraw: monthlyDrawCPda,
+        prizeVault,
+        monthlyVault,
+        vaultAuthority,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      }).rpc();
+
+    const md: any = await program.account.monthlyDraw.fetch(monthlyDrawCPda);
+
+    // jackpot SEM ganhador
+    expect(md.jackpotHit).to.equal(false, "REGRA: jackpot sem ganhador");
+    expect(Number(md.jackpotWinnerCount)).to.equal(0);
+    expect(BigInt(md.monthlyPrizePerTier[0].toString())).to.equal(0n);
+
+    // ...e MESMO ASSIM a cascata alocou o tier 3
+    for (let i = 0; i < 9; i++) {
+      expect(BigInt(md.monthlyPrizePerTier[i + 1].toString())).to.equal(expectedTierValues[i], `tier ${i + 1}`);
+    }
+    expect(BigInt(md.monthlyPrizePerTier[3].toString()) >= MIN_PRIZE).to.equal(
+      true,
+      "tier 3 alocado acima de $1 apesar de jackpot_hit=false"
+    );
+
+    const rolloverOnChain = BigInt(md.rolloverToNextMonth.toString());
+    expect(rolloverOnChain).to.equal(expectedTotalRollover);
+
+    // Conservação
+    const cascataPagaTotal = expectedTierValues.reduce((sum, v, i) => sum + v * winnerCounts1_9[i], 0n);
+    expect(cascataPagaTotal + rolloverOnChain).to.equal(poolSnapshotC, "conservação quebrada na draw C");
+
+    expect(Number(md.status)).to.equal(3);
+
+    console.log(`    [finalize C] jackpotHit=false jackpotPool(rolou)=${jackpotPoolC} tier3=${expectedTierValues[2]} rollover=${rolloverOnChain}`);
+  });
+
+  it("pay C (3E): o ganhador do tier 3 RECEBE seu prêmio via pay_monthly_winners_batch, com jackpot_hit=false", async function () {
+    this.timeout(180_000);
+
+    const md: any = await program.account.monthlyDraw.fetch(monthlyDrawCPda);
+    expect(Number(md.status)).to.equal(3);
+    expect(md.jackpotHit).to.equal(false, "confirmando: nenhum ganhador de jackpot");
+
+    const tier3Prize = BigInt(md.monthlyPrizePerTier[3].toString());
+    expect(tier3Prize >= MIN_PRIZE).to.equal(true);
+
+    const totalWinners = md.monthlyWinnerCounts
+      .map((x: any) => BigInt(x.toString()))
+      .reduce((a: bigint, b: bigint) => a + b, 0n);
+    expect(totalWinners).to.equal(1n);
+
+    const winnerAta = tier3TicketsC[0].ata;
+    const winnerAtaBefore = await getAccount(connection, winnerAta);
+    const vaultBefore = await getAccount(connection, monthlyVault);
+
+    // um perdedor qualquer entra no lote junto — não pode receber nada
+    const loserClaimPda = getMonthlyClaimPDA(monthlyDrawCPda, fillersC[0].pda);
+    const loserClaimBefore = await fetchMonthlyClaim(loserClaimPda);
+    expect(loserClaimBefore.tier).to.equal(255);
+
+    await payMonthlyAll(monthlyDrawCPda, allTicketsC);
+
+    const winnerAtaAfter = await getAccount(connection, winnerAta);
+    const vaultAfter = await getAccount(connection, monthlyVault);
+
+    // >>> A PROVA <<<  o ganhador da cascata recebeu, mesmo sem jackpot.
+    expect(winnerAtaAfter.amount - winnerAtaBefore.amount).to.equal(
+      tier3Prize,
+      "ganhador do tier 3 recebe seu prêmio apesar de jackpot_hit=false"
+    );
+    expect(vaultBefore.amount - vaultAfter.amount).to.equal(tier3Prize, "vault saiu só o prêmio do tier 3");
+
+    const loserClaimAfter = await fetchMonthlyClaim(loserClaimPda);
+    expect(loserClaimAfter.paid).to.equal(false, "perdedor no lote não recebe nem é marcado");
+
+    const mdPaid: any = await program.account.monthlyDraw.fetch(monthlyDrawCPda);
+    expect(Number(mdPaid.status)).to.equal(4, "ciclo mensal fechado (status 4)");
+    expect(BigInt(mdPaid.ticketsPaid.toString())).to.equal(1n);
+
+    // idempotência: reenviar não paga de novo
+    const winnerReBefore = await getAccount(connection, winnerAta);
+    await payMonthlyAll(monthlyDrawCPda, allTicketsC.slice(0, 10));
+    const winnerReAfter = await getAccount(connection, winnerAta);
+    expect(winnerReAfter.amount - winnerReBefore.amount).to.equal(0n, "reenvio não paga em dobro");
+
+    console.log(`    [pay C] tier3 winner recebeu ${tier3Prize} com jackpot_hit=false — regra provada`);
   });
 });

@@ -118,6 +118,13 @@ pub mod megabyt {
         instructions::finalize_payouts::handler(ctx)
     }
 
+    pub fn pay_monthly_winners_batch<'info>(
+        ctx: Context<'_, '_, 'info, 'info, PayMonthlyWinnersBatch<'info>>,
+        batch_size: u32,
+    ) -> Result<()> {
+        instructions::pay_monthly_winners_batch::handler(ctx, batch_size)
+    }
+
     pub fn pay_winners_batch<'info>(
         ctx: Context<'_, '_, 'info, 'info, PayWinnersBatch<'info>>,
         batch_size: u32,
