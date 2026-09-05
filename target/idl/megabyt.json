@@ -1,0 +1,3833 @@
+{
+  "address": "2sq5GDjs2ESDEK2Jpec7je2aAnVJ2w7uZgM1Qh5GgpmS",
+  "metadata": {
+    "name": "megabyt",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "advance_phase",
+      "discriminator": [
+        91,
+        6,
+        51,
+        226,
+        144,
+        243,
+        74,
+        113
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "buy_ticket",
+      "discriminator": [
+        11,
+        24,
+        17,
+        193,
+        168,
+        116,
+        164,
+        169
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "draw_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  114,
+                  97,
+                  119,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "draw_state.id",
+                "account": "Draw"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_draw_state",
+          "docs": [
+            "User's draw state — tracks ticket count per user per draw.",
+            "Created on first buy, reused on subsequent buys."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  45,
+                  100,
+                  114,
+                  97,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "draw_state"
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_global_state",
+          "docs": [
+            "User's global state — tracks whether this wallet has been counted",
+            "in global total_users / active_users. Created on first buy ever."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  45,
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "ticket",
+          "docs": [
+            "Ticket PDA now includes ticket_index for multi-ticket support.",
+            "ticket_index comes from user_draw_state.tickets_bought BEFORE increment."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  105,
+                  99,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "draw_state"
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              },
+              {
+                "kind": "account",
+                "path": "user_draw_state.tickets_bought",
+                "account": "UserDrawState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_token_account",
+          "writable": true
+        },
+        {
+          "name": "prize_vault",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "numbers",
+          "type": "bytes"
+        },
+        {
+          "name": "crypto",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "buy_ticket_with_referral",
+      "discriminator": [
+        43,
+        41,
+        21,
+        44,
+        75,
+        78,
+        227,
+        251
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "draw_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  114,
+                  97,
+                  119,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "draw_state.id",
+                "account": "Draw"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_draw_state",
+          "docs": [
+            "User's draw state — tracks ticket count per user per draw.",
+            "Created on first buy, reused on subsequent buys."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  45,
+                  100,
+                  114,
+                  97,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "draw_state"
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_global_state",
+          "docs": [
+            "User's global state — tracks whether this wallet has been counted",
+            "in global total_users / active_users. Created on first buy ever."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  45,
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "ticket",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  105,
+                  99,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "draw_state"
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              },
+              {
+                "kind": "account",
+                "path": "user_draw_state.tickets_bought",
+                "account": "UserDrawState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_token_account",
+          "writable": true
+        },
+        {
+          "name": "prize_vault",
+          "writable": true
+        },
+        {
+          "name": "user_state",
+          "docs": [
+            "User's own state (must exist)"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "referrer_state",
+          "docs": [
+            "Referrer's user state"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "referrer_state.owner",
+                "account": "UserState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "referrer_token_account",
+          "docs": [
+            "Referrer's token account (must be owned by referrer, same mint as prize_vault)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "numbers",
+          "type": "bytes"
+        },
+        {
+          "name": "crypto",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "claim_bonus_ticket",
+      "discriminator": [
+        178,
+        72,
+        229,
+        193,
+        48,
+        57,
+        146,
+        198
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global_state",
+          "writable": true
+        },
+        {
+          "name": "user_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "draw_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  114,
+                  97,
+                  119,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "draw_state.id",
+                "account": "Draw"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_draw_state",
+          "docs": [
+            "User's draw state — tracks ticket count per user per draw.",
+            "Created on first buy, reused on subsequent buys."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  45,
+                  100,
+                  114,
+                  97,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "draw_state"
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "ticket",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  105,
+                  99,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "draw_state"
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              },
+              {
+                "kind": "account",
+                "path": "user_draw_state.tickets_bought",
+                "account": "UserDrawState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "numbers",
+          "type": "bytes"
+        },
+        {
+          "name": "crypto",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "close_draw",
+      "discriminator": [
+        128,
+        127,
+        153,
+        89,
+        19,
+        81,
+        63,
+        30
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "draw",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  114,
+                  97,
+                  119,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "draw.id",
+                "account": "Draw"
+              }
+            ]
+          }
+        },
+        {
+          "name": "randomness_account_data"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "close_monthly_draw",
+      "discriminator": [
+        234,
+        89,
+        79,
+        58,
+        117,
+        111,
+        252,
+        86
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "monthly_draw",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  110,
+                  116,
+                  104,
+                  108,
+                  121,
+                  45,
+                  100,
+                  114,
+                  97,
+                  119,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "monthly_draw.id",
+                "account": "MonthlyDraw"
+              }
+            ]
+          }
+        },
+        {
+          "name": "randomness_account_data"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "finalize_monthly_payouts",
+      "discriminator": [
+        228,
+        190,
+        152,
+        202,
+        152,
+        189,
+        90,
+        236
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "monthly_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  110,
+                  116,
+                  104,
+                  108,
+                  121,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "monthly_draw",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  110,
+                  116,
+                  104,
+                  108,
+                  121,
+                  45,
+                  100,
+                  114,
+                  97,
+                  119,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "monthly_draw.id",
+                "account": "MonthlyDraw"
+              }
+            ]
+          }
+        },
+        {
+          "name": "prize_vault",
+          "writable": true
+        },
+        {
+          "name": "monthly_vault",
+          "writable": true
+        },
+        {
+          "name": "vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  45,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "finalize_payouts",
+      "discriminator": [
+        68,
+        202,
+        152,
+        6,
+        85,
+        82,
+        219,
+        240
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "draw",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  114,
+                  97,
+                  119,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "draw.id",
+                "account": "Draw"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "init_monthly_state",
+      "discriminator": [
+        6,
+        40,
+        173,
+        206,
+        153,
+        107,
+        222,
+        69
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "monthly_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  110,
+                  116,
+                  104,
+                  108,
+                  121,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "init_monthly_vault",
+      "discriminator": [
+        118,
+        68,
+        146,
+        109,
+        14,
+        159,
+        241,
+        74
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "monthly_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  110,
+                  116,
+                  104,
+                  108,
+                  121,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_mint"
+        },
+        {
+          "name": "monthly_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  110,
+                  116,
+                  104,
+                  108,
+                  121,
+                  45,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault_authority",
+          "docs": [
+            "prize_vault diario e dos demais vaults do protocolo)."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  45,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "init_user_state",
+      "discriminator": [
+        229,
+        142,
+        179,
+        158,
+        177,
+        92,
+        220,
+        92
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "user_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize",
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "treasury",
+          "type": "pubkey"
+        },
+        {
+          "name": "ticket_price",
+          "type": "u64"
+        },
+        {
+          "name": "usdt_mint",
+          "type": "pubkey"
+        },
+        {
+          "name": "byti_mint",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "initialize_vaults",
+      "discriminator": [
+        234,
+        84,
+        214,
+        3,
+        128,
+        195,
+        81,
+        125
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_mint"
+        },
+        {
+          "name": "prize_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  105,
+                  122,
+                  101,
+                  45,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasury_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121,
+                  45,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "legal_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  103,
+                  97,
+                  108,
+                  45,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "marketing_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116,
+                  105,
+                  110,
+                  103,
+                  45,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "liquidity_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  105,
+                  113,
+                  117,
+                  105,
+                  100,
+                  105,
+                  116,
+                  121,
+                  45,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  45,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "open_draw",
+      "discriminator": [
+        112,
+        254,
+        220,
+        225,
+        218,
+        132,
+        209,
+        144
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "draw_state",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "duration",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "open_monthly_draw",
+      "discriminator": [
+        81,
+        120,
+        184,
+        191,
+        116,
+        56,
+        243,
+        21
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "monthly_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  110,
+                  116,
+                  104,
+                  108,
+                  121,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "monthly_draw",
+          "writable": true
+        },
+        {
+          "name": "prize_vault",
+          "writable": true
+        },
+        {
+          "name": "monthly_vault",
+          "writable": true
+        },
+        {
+          "name": "vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  45,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "first_draw_id",
+          "type": "u64"
+        },
+        {
+          "name": "last_draw_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "pay_monthly_winners_batch",
+      "discriminator": [
+        49,
+        58,
+        2,
+        47,
+        62,
+        93,
+        156,
+        33
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "monthly_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  110,
+                  116,
+                  104,
+                  108,
+                  121,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "monthly_draw",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  110,
+                  116,
+                  104,
+                  108,
+                  121,
+                  45,
+                  100,
+                  114,
+                  97,
+                  119,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "monthly_draw.id",
+                "account": "MonthlyDraw"
+              }
+            ]
+          }
+        },
+        {
+          "name": "monthly_vault",
+          "writable": true
+        },
+        {
+          "name": "vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  45,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "batch_size",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "pay_winners_batch",
+      "discriminator": [
+        30,
+        107,
+        56,
+        233,
+        218,
+        107,
+        53,
+        236
+      ],
+      "accounts": [
+        {
+          "name": "draw",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  114,
+                  97,
+                  119,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "draw.id",
+                "account": "Draw"
+              }
+            ]
+          }
+        },
+        {
+          "name": "ticket",
+          "writable": true
+        },
+        {
+          "name": "global_state"
+        },
+        {
+          "name": "prize_vault",
+          "writable": true
+        },
+        {
+          "name": "user_token_account",
+          "writable": true
+        },
+        {
+          "name": "vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  45,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "batch_size",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "request_monthly_randomness",
+      "discriminator": [
+        4,
+        236,
+        76,
+        67,
+        165,
+        29,
+        96,
+        167
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "monthly_draw",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  110,
+                  116,
+                  104,
+                  108,
+                  121,
+                  45,
+                  100,
+                  114,
+                  97,
+                  119,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "monthly_draw.id",
+                "account": "MonthlyDraw"
+              }
+            ]
+          }
+        },
+        {
+          "name": "randomness_account"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "request_randomness",
+      "discriminator": [
+        213,
+        5,
+        173,
+        166,
+        37,
+        236,
+        31,
+        18
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "draw",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  114,
+                  97,
+                  119,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "draw.id",
+                "account": "Draw"
+              }
+            ]
+          }
+        },
+        {
+          "name": "randomness_account"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "reset_draw_settlement",
+      "discriminator": [
+        237,
+        39,
+        121,
+        134,
+        207,
+        32,
+        232,
+        201
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "draw",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  114,
+                  97,
+                  119,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "draw.id",
+                "account": "Draw"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "set_crypto_count",
+      "discriminator": [
+        255,
+        228,
+        5,
+        143,
+        150,
+        195,
+        123,
+        202
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "crypto_count",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "set_referrer",
+      "discriminator": [
+        115,
+        251,
+        55,
+        0,
+        166,
+        189,
+        25,
+        74
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "user_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "referrer_state",
+          "docs": [
+            "The referrer's user state. Must exist and be owned by someone else."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "referrer_state.owner",
+                "account": "UserState"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "settle_monthly_tickets",
+      "discriminator": [
+        140,
+        172,
+        78,
+        62,
+        31,
+        206,
+        194,
+        85
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "monthly_draw",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  110,
+                  116,
+                  104,
+                  108,
+                  121,
+                  45,
+                  100,
+                  114,
+                  97,
+                  119,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "monthly_draw.id",
+                "account": "MonthlyDraw"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "batch_size",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "settle_tickets",
+      "discriminator": [
+        222,
+        170,
+        32,
+        122,
+        116,
+        85,
+        243,
+        12
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "draw",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  114,
+                  97,
+                  119,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "draw.id",
+                "account": "Draw"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "batch_size",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "verify_randomness",
+      "discriminator": [
+        44,
+        253,
+        241,
+        244,
+        8,
+        243,
+        52,
+        12
+      ],
+      "accounts": [
+        {
+          "name": "draw",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  114,
+                  97,
+                  119,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "draw_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "randomness_account_data"
+        }
+      ],
+      "args": [
+        {
+          "name": "draw_id",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Draw",
+      "discriminator": [
+        225,
+        131,
+        41,
+        222,
+        122,
+        20,
+        146,
+        202
+      ]
+    },
+    {
+      "name": "GlobalState",
+      "discriminator": [
+        163,
+        46,
+        74,
+        168,
+        216,
+        123,
+        133,
+        98
+      ]
+    },
+    {
+      "name": "MonthlyDraw",
+      "discriminator": [
+        30,
+        217,
+        42,
+        170,
+        29,
+        87,
+        221,
+        124
+      ]
+    },
+    {
+      "name": "MonthlyState",
+      "discriminator": [
+        105,
+        162,
+        229,
+        182,
+        75,
+        104,
+        106,
+        3
+      ]
+    },
+    {
+      "name": "Ticket",
+      "discriminator": [
+        41,
+        228,
+        24,
+        165,
+        78,
+        90,
+        235,
+        200
+      ]
+    },
+    {
+      "name": "UserDrawState",
+      "discriminator": [
+        133,
+        200,
+        85,
+        224,
+        253,
+        17,
+        43,
+        216
+      ]
+    },
+    {
+      "name": "UserGlobalState",
+      "discriminator": [
+        196,
+        55,
+        221,
+        183,
+        141,
+        42,
+        99,
+        15
+      ]
+    },
+    {
+      "name": "UserState",
+      "discriminator": [
+        72,
+        177,
+        85,
+        249,
+        76,
+        167,
+        186,
+        126
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Unauthorized",
+      "msg": "Unauthorized"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidAdmin",
+      "msg": "Invalid admin"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidTreasury",
+      "msg": "Invalid treasury"
+    },
+    {
+      "code": 6003,
+      "name": "MathOverflow",
+      "msg": "Math overflow"
+    },
+    {
+      "code": 6004,
+      "name": "ArithmeticOverflow",
+      "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6005,
+      "name": "DrawStillOpen",
+      "msg": "Draw is still open"
+    },
+    {
+      "code": 6006,
+      "name": "DrawAlreadyClosed",
+      "msg": "Draw already closed"
+    },
+    {
+      "code": 6007,
+      "name": "DrawClosed",
+      "msg": "Draw closed"
+    },
+    {
+      "code": 6008,
+      "name": "DrawNotReady",
+      "msg": "Draw not ready for payout"
+    },
+    {
+      "code": 6009,
+      "name": "DrawNotEnded",
+      "msg": "Draw has not reached end time yet"
+    },
+    {
+      "code": 6010,
+      "name": "InvalidDrawState",
+      "msg": "Invalid draw state"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidDuration",
+      "msg": "Invalid duration"
+    },
+    {
+      "code": 6012,
+      "name": "NoTicketsSold",
+      "msg": "No tickets sold"
+    },
+    {
+      "code": 6013,
+      "name": "InvalidNumber",
+      "msg": "Invalid number"
+    },
+    {
+      "code": 6014,
+      "name": "InvalidNumbers",
+      "msg": "Invalid numbers"
+    },
+    {
+      "code": 6015,
+      "name": "InvalidNumbersCount",
+      "msg": "Invalid numbers count for current phase"
+    },
+    {
+      "code": 6016,
+      "name": "DuplicateNumber",
+      "msg": "Duplicate number"
+    },
+    {
+      "code": 6017,
+      "name": "InvalidCryptoNumber",
+      "msg": "Invalid crypto number"
+    },
+    {
+      "code": 6018,
+      "name": "InvalidTicket",
+      "msg": "Invalid ticket"
+    },
+    {
+      "code": 6019,
+      "name": "TicketNotSettled",
+      "msg": "Ticket not settled"
+    },
+    {
+      "code": 6020,
+      "name": "TicketAlreadySettled",
+      "msg": "Ticket already settled"
+    },
+    {
+      "code": 6021,
+      "name": "TicketAlreadyPaid",
+      "msg": "Ticket already paid"
+    },
+    {
+      "code": 6022,
+      "name": "SettlementNotComplete",
+      "msg": "Settlement not complete"
+    },
+    {
+      "code": 6023,
+      "name": "SettlementAlreadyFinalized",
+      "msg": "Settlement already finalized"
+    },
+    {
+      "code": 6024,
+      "name": "InvalidTokenOwner",
+      "msg": "Invalid token owner"
+    },
+    {
+      "code": 6025,
+      "name": "InvalidMint",
+      "msg": "Invalid token mint"
+    },
+    {
+      "code": 6026,
+      "name": "InvalidVaultAuthority",
+      "msg": "Invalid vault authority"
+    },
+    {
+      "code": 6027,
+      "name": "InvalidPrizeVault",
+      "msg": "Invalid prize vault"
+    },
+    {
+      "code": 6028,
+      "name": "InvalidTier",
+      "msg": "Invalid tier"
+    },
+    {
+      "code": 6029,
+      "name": "RandomnessNotReady",
+      "msg": "Randomness not fulfilled yet"
+    },
+    {
+      "code": 6030,
+      "name": "ReferrerAlreadySet",
+      "msg": "Referrer already set"
+    },
+    {
+      "code": 6031,
+      "name": "InvalidReferrer",
+      "msg": "Invalid referrer"
+    },
+    {
+      "code": 6032,
+      "name": "SelfReferralNotAllowed",
+      "msg": "Self-referral not allowed"
+    },
+    {
+      "code": 6033,
+      "name": "UserStateNotInitialized",
+      "msg": "User state not initialized"
+    },
+    {
+      "code": 6034,
+      "name": "ReferrerStateNotInitialized",
+      "msg": "Referrer state not initialized"
+    },
+    {
+      "code": 6035,
+      "name": "ReferralTokenAccountInvalid",
+      "msg": "Referral token account invalid"
+    },
+    {
+      "code": 6036,
+      "name": "ReferralAlreadyCounted",
+      "msg": "Referral already counted for this user"
+    },
+    {
+      "code": 6037,
+      "name": "NoBonusTicketCredits",
+      "msg": "No bonus ticket credits available"
+    },
+    {
+      "code": 6038,
+      "name": "MaxPhaseReached",
+      "msg": "Maximum phase already reached"
+    },
+    {
+      "code": 6039,
+      "name": "PhaseThresholdNotMet",
+      "msg": "Active users threshold not met for next phase"
+    },
+    {
+      "code": 6040,
+      "name": "SupplyCapExceeded",
+      "msg": "Supply cap exceeded for current phase"
+    },
+    {
+      "code": 6041,
+      "name": "TooManyNumbers",
+      "msg": "Too many numbers for current phase"
+    },
+    {
+      "code": 6042,
+      "name": "TooManyCryptos",
+      "msg": "Too many crypto selections for current phase"
+    },
+    {
+      "code": 6043,
+      "name": "InvalidMonthlyRange",
+      "msg": "Invalid monthly draw range (empty, too large, gap, overlap or duplicate)"
+    },
+    {
+      "code": 6044,
+      "name": "InvalidMonthlyVault",
+      "msg": "Invalid monthly vault"
+    },
+    {
+      "code": 6045,
+      "name": "MonthlyTicketAlreadyClaimed",
+      "msg": "Ticket already claimed for this monthly draw"
+    }
+  ],
+  "types": [
+    {
+      "name": "Draw",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "id",
+            "type": "u64"
+          },
+          {
+            "name": "is_open",
+            "type": "bool"
+          },
+          {
+            "name": "is_closed",
+            "type": "bool"
+          },
+          {
+            "name": "is_paid",
+            "type": "bool"
+          },
+          {
+            "name": "settled",
+            "type": "bool"
+          },
+          {
+            "name": "start_time",
+            "type": "i64"
+          },
+          {
+            "name": "end_time",
+            "type": "i64"
+          },
+          {
+            "name": "total_tickets",
+            "type": "u64"
+          },
+          {
+            "name": "total_amount",
+            "type": "u64"
+          },
+          {
+            "name": "total_collected",
+            "type": "u64"
+          },
+          {
+            "name": "total_pool",
+            "type": "u64"
+          },
+          {
+            "name": "prize_pool",
+            "type": "u64"
+          },
+          {
+            "name": "tickets_sold",
+            "type": "u64"
+          },
+          {
+            "name": "winner",
+            "type": "pubkey"
+          },
+          {
+            "name": "crypto_number",
+            "type": "u8"
+          },
+          {
+            "name": "result_numbers",
+            "type": "bytes"
+          },
+          {
+            "name": "result_crypto",
+            "type": "u8"
+          },
+          {
+            "name": "winning_numbers",
+            "type": "bytes"
+          },
+          {
+            "name": "winning_crypto",
+            "type": "u8"
+          },
+          {
+            "name": "randomness_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "commit_slot",
+            "type": "u64"
+          },
+          {
+            "name": "random_seed",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "randomness_requested",
+            "type": "bool"
+          },
+          {
+            "name": "randomness_fulfilled",
+            "type": "bool"
+          },
+          {
+            "name": "tickets_processed",
+            "type": "u64"
+          },
+          {
+            "name": "tickets_paid",
+            "type": "u64"
+          },
+          {
+            "name": "winner_counts",
+            "type": {
+              "array": [
+                "u64",
+                10
+              ]
+            }
+          },
+          {
+            "name": "prize_per_tier",
+            "type": {
+              "array": [
+                "u64",
+                10
+              ]
+            }
+          },
+          {
+            "name": "settlement_complete",
+            "type": "bool"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "monthly_rollover_contribution",
+            "docs": [
+              "Total amount from this draw sent to monthly accumulator",
+              "(residuals from division + tiers below 1 USDT minimum)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "numbers_count",
+            "docs": [
+              "Number of numbers per ticket for this draw (from phase config)"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GlobalState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "token_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "byti_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "usdt_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "ticket_price",
+            "type": "u64"
+          },
+          {
+            "name": "total_users",
+            "type": "u64"
+          },
+          {
+            "name": "active_users",
+            "type": "u64"
+          },
+          {
+            "name": "total_collected",
+            "type": "u64"
+          },
+          {
+            "name": "total_draws",
+            "type": "u64"
+          },
+          {
+            "name": "current_draw_id",
+            "type": "u64"
+          },
+          {
+            "name": "total_volume_byti",
+            "type": "u64"
+          },
+          {
+            "name": "total_revenue_usdt",
+            "type": "u64"
+          },
+          {
+            "name": "total_supply_cap",
+            "type": "u64"
+          },
+          {
+            "name": "released_supply",
+            "type": "u64"
+          },
+          {
+            "name": "current_phase",
+            "type": "u64"
+          },
+          {
+            "name": "current_phase_supply",
+            "type": "u64"
+          },
+          {
+            "name": "numbers_count",
+            "type": "u8"
+          },
+          {
+            "name": "crypto_count",
+            "type": "u8"
+          },
+          {
+            "name": "prize_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "legal_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "marketing_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "liquidity_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "byti_ticket_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "byti_treasury_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "byti_emission_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "usdt_reserve_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "prize_usdt_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "referral_usdt_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "legal_usdt_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "ops_usdt_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "admin_usdt_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "monthly_pool",
+            "type": "u64"
+          },
+          {
+            "name": "monthly_cycle_start",
+            "type": "i64"
+          },
+          {
+            "name": "monthly_cycle_duration",
+            "type": "i64"
+          },
+          {
+            "name": "last_monthly_rollover_at",
+            "type": "i64"
+          },
+          {
+            "name": "monthly_cycles_completed",
+            "type": "u64"
+          },
+          {
+            "name": "admin_total",
+            "type": "u64"
+          },
+          {
+            "name": "security_total",
+            "type": "u64"
+          },
+          {
+            "name": "referral_total",
+            "type": "u64"
+          },
+          {
+            "name": "costs_total",
+            "type": "u64"
+          },
+          {
+            "name": "monthly_total",
+            "type": "u64"
+          },
+          {
+            "name": "daily_total",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MonthlyDraw",
+      "docs": [
+        "Um sorteio mensal individual. Cobre um intervalo de sorteios diarios",
+        "(`first_draw_id..=last_draw_id`) e reaproveita os tickets desses",
+        "sorteios, repontuando-os contra um resultado VRF proprio do mes."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "id",
+            "type": "u64"
+          },
+          {
+            "name": "first_draw_id",
+            "docs": [
+              "Intervalo de draw_id (diarios) cobertos por este sorteio mensal."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "last_draw_id",
+            "type": "u64"
+          },
+          {
+            "name": "tickets_target",
+            "docs": [
+              "Soma de tickets_sold das draws cobertas — meta de settlement."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "tickets_processed",
+            "type": "u64"
+          },
+          {
+            "name": "tickets_paid",
+            "type": "u64"
+          },
+          {
+            "name": "pool_snapshot",
+            "docs": [
+              "Snapshot do global_state.monthly_pool no momento da abertura,",
+              "ja dividido conforme a spec (75% jackpot / 25% cascata)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "jackpot_pool",
+            "type": "u64"
+          },
+          {
+            "name": "cascade_pool",
+            "type": "u64"
+          },
+          {
+            "name": "numbers_count",
+            "type": "u8"
+          },
+          {
+            "name": "result_numbers",
+            "type": "bytes"
+          },
+          {
+            "name": "result_crypto",
+            "type": "u8"
+          },
+          {
+            "name": "randomness_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "commit_slot",
+            "type": "u64"
+          },
+          {
+            "name": "random_seed",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "randomness_requested",
+            "type": "bool"
+          },
+          {
+            "name": "randomness_fulfilled",
+            "type": "bool"
+          },
+          {
+            "name": "monthly_winner_counts",
+            "docs": [
+              "Contadores por tier igual ao diario, mas restritos a este sorteio",
+              "mensal (tier 0 = jackpot; 1..9 = cascata)."
+            ],
+            "type": {
+              "array": [
+                "u64",
+                10
+              ]
+            }
+          },
+          {
+            "name": "monthly_prize_per_tier",
+            "type": {
+              "array": [
+                "u64",
+                10
+              ]
+            }
+          },
+          {
+            "name": "jackpot_hit",
+            "type": "bool"
+          },
+          {
+            "name": "jackpot_winner_count",
+            "type": "u64"
+          },
+          {
+            "name": "rollover_to_next_month",
+            "docs": [
+              "Quanto voltou pro global_state.monthly_pool neste ciclo (jackpot",
+              "nao reclamado + residuos + anti-esmola)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "status",
+            "docs": [
+              "0=aberto, 1=fechado/numeros derivados, 2=settled, 3=finalizado, 4=pago",
+              "(mesma convencao de status usada em Draw)."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MonthlyState",
+      "docs": [
+        "Singleton com o estado global do sorteio mensal. Conta nova e separada",
+        "de GlobalState de proposito: GlobalState foi criado com `space` fixo",
+        "(sem realloc), entao adicionar campos nela exigiria uma migracao",
+        "arriscada do singleton ja em producao. Aqui nao ha esse problema."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "monthly_vault",
+            "docs": [
+              "Vault SPL dedicado ao pool mensal (ver plano: vault separado do",
+              "prize_vault diario, alimentado por um sweep em close_draw numa",
+              "etapa futura). Pubkey::default() ate init_monthly_vault rodar."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "current_monthly_id",
+            "docs": [
+              "Id do ULTIMO sorteio mensal criado (0 = nenhum aberto ainda) — mesma",
+              "semantica de global_state.current_draw_id (open_monthly_draw usa",
+              "current_monthly_id + 1 como id do novo sorteio)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_monthly_draws",
+            "docs": [
+              "Quantos sorteios mensais ja foram concluidos."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "jackpot_carry",
+            "docs": [
+              "Espelho informativo do valor de jackpot (75%) que ja rolou pra",
+              "meses seguintes por falta de acertador do numero maximo. A fonte",
+              "de verdade financeira continua sendo global_state.monthly_pool;",
+              "este campo e so pra visibilidade/auditoria."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "last_monthly_open_at",
+            "type": "i64"
+          },
+          {
+            "name": "last_covered_draw_id",
+            "docs": [
+              "Ultimo draw_id (diario) ja coberto por algum sorteio mensal (0 =",
+              "nenhum ainda). open_monthly_draw exige que o proximo range comece",
+              "exatamente em last_covered_draw_id + 1 — impede gap ou sobreposicao",
+              "entre meses consecutivos. So nao se aplica no primeiro mes (0)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Ticket",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "draw",
+            "type": "pubkey"
+          },
+          {
+            "name": "draw_id",
+            "type": "u64"
+          },
+          {
+            "name": "numbers",
+            "type": "bytes"
+          },
+          {
+            "name": "crypto",
+            "type": "u8"
+          },
+          {
+            "name": "crypto_number",
+            "type": "u8"
+          },
+          {
+            "name": "claimed",
+            "type": "bool"
+          },
+          {
+            "name": "settled",
+            "type": "bool"
+          },
+          {
+            "name": "paid",
+            "type": "bool"
+          },
+          {
+            "name": "tier",
+            "type": "u8"
+          },
+          {
+            "name": "prize_amount",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "ticket_index",
+            "docs": [
+              "Sequential index of this ticket for the user in this draw"
+            ],
+            "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UserDrawState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "docs": [
+              "The user wallet"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "draw",
+            "docs": [
+              "The draw this state belongs to"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "tickets_bought",
+            "docs": [
+              "Number of tickets bought by this user in this draw"
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UserGlobalState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "docs": [
+              "The user wallet this state belongs to"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "counted_globally",
+            "docs": [
+              "Whether this user has already been counted in global_state.total_users",
+              "and global_state.active_users. Set to true on first ticket ever."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UserState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "referrer",
+            "type": "pubkey"
+          },
+          {
+            "name": "has_referrer",
+            "type": "bool"
+          },
+          {
+            "name": "counted_as_referral_conversion",
+            "type": "bool"
+          },
+          {
+            "name": "successful_referrals",
+            "type": "u32"
+          },
+          {
+            "name": "total_referral_earned",
+            "type": "u64"
+          },
+          {
+            "name": "bonus_ticket_credits",
+            "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ],
+  "constants": [
+    {
+      "name": "SEED",
+      "type": "string",
+      "value": "\"anchor\""
+    }
+  ]
+}
