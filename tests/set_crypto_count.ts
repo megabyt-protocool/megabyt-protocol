@@ -118,11 +118,22 @@ describe("crypto_count e sistema de fases", () => {
     const CHUNK = 10;
     for (let i = 0; i < wallets.length; i += CHUNK) {
       const chunk = wallets.slice(i, i + CHUNK);
-      const tx = new Transaction();
-      for (const w of chunk) {
-        tx.add(SystemProgram.transfer({ fromPubkey: admin.publicKey, toPubkey: w.publicKey, lamports: lamportsEach }));
+      // Retry com backoff: sob a suíte completa o validator local as vezes
+      // devolve "Blockhash not found" nessa fase de transferencia em massa.
+      // O tx e' reconstruido a cada tentativa (blockhash novo).
+      for (let attempt = 1; ; attempt++) {
+        try {
+          const tx = new Transaction();
+          for (const w of chunk) {
+            tx.add(SystemProgram.transfer({ fromPubkey: admin.publicKey, toPubkey: w.publicKey, lamports: lamportsEach }));
+          }
+          await sendAndConfirmTransaction(connection, tx, [admin], { commitment: "confirmed" });
+          break;
+        } catch (e: any) {
+          if (attempt > 4) throw e;
+          await new Promise((r) => setTimeout(r, 500 * attempt));
+        }
       }
-      await sendAndConfirmTransaction(connection, tx, [admin], { commitment: "confirmed" });
     }
   }
 
@@ -135,14 +146,24 @@ describe("crypto_count e sistema de fases", () => {
     const CHUNK = 5; // 2 instrucoes por carteira (create + mintTo)
     for (let i = 0; i < wallets.length; i += CHUNK) {
       const chunk = wallets.slice(i, i + CHUNK);
-      const tx = new Transaction();
-      for (const w of chunk) {
-        const ata = getAssociatedTokenAddressSync(mintPk, w.publicKey, false, TOKEN_PROGRAM_ID);
-        atas.set(w.publicKey.toBase58(), ata);
-        tx.add(createAssociatedTokenAccountInstruction(admin.publicKey, ata, w.publicKey, mintPk, TOKEN_PROGRAM_ID));
-        tx.add(createMintToInstruction(mintPk, ata, admin.publicKey, tokenAmount, [], TOKEN_PROGRAM_ID));
+      // Mesmo retry com backoff da fundManyWithSol — mesma classe de
+      // flakiness ("Blockhash not found") sob a suite completa.
+      for (let attempt = 1; ; attempt++) {
+        try {
+          const tx = new Transaction();
+          for (const w of chunk) {
+            const ata = getAssociatedTokenAddressSync(mintPk, w.publicKey, false, TOKEN_PROGRAM_ID);
+            atas.set(w.publicKey.toBase58(), ata);
+            tx.add(createAssociatedTokenAccountInstruction(admin.publicKey, ata, w.publicKey, mintPk, TOKEN_PROGRAM_ID));
+            tx.add(createMintToInstruction(mintPk, ata, admin.publicKey, tokenAmount, [], TOKEN_PROGRAM_ID));
+          }
+          await sendAndConfirmTransaction(connection, tx, [admin], { commitment: "confirmed" });
+          break;
+        } catch (e: any) {
+          if (attempt > 4) throw e;
+          await new Promise((r) => setTimeout(r, 500 * attempt));
+        }
       }
-      await sendAndConfirmTransaction(connection, tx, [admin], { commitment: "confirmed" });
     }
     return atas;
   }

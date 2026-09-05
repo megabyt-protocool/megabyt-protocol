@@ -12,6 +12,12 @@ use crate::state::{GlobalState, MonthlyClaim, MonthlyDraw, Ticket};
 /// Cada item do lote em `remaining_accounts` vem em PARES ordenados:
 ///     [ticket_1, claim_1, ticket_2, claim_2, ...]
 ///
+/// LIMITE DE TAMANHO DE TRANSACAO: cada ticket ocupa 2 contas, entao o
+/// teto pratico e' ~10-13 tickets por chamada numa transacao legada
+/// (1232 bytes). Os scripts de operacao do mensal (settle + pay + producao)
+/// precisam batcher respeitando isso — validado no teste
+/// tests/monthly_finalize_payouts.ts (batch de 15 estourou, 10 passou).
+///
 /// `ticket_i` e' somente-leitura (nunca mutado aqui — o mensal nao toca em
 /// Ticket, so cria a MonthlyClaim). `claim_i` e' a PDA
 /// ["m-claim", monthly_draw, ticket_i] — ainda NAO existe on-chain; e'
