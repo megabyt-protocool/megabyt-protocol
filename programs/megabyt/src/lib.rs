@@ -133,6 +133,10 @@ pub mod megabyt {
         instructions::init_user_state::handler(ctx)
     }
 
+    pub fn set_crypto_count(ctx: Context<SetCryptoCount>, crypto_count: u8) -> Result<()> {
+        instructions::set_crypto_count::handler(ctx, crypto_count)
+    }
+
     pub fn set_referrer(ctx: Context<SetReferrer>) -> Result<()> {
         instructions::set_referrer::handler(ctx)
     }

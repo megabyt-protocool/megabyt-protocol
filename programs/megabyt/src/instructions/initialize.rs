@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use crate::constants::MONTHLY_CYCLE_DURATION_SECONDS;
+use crate::constants::{ALL_CRYPTOS_COUNT, MONTHLY_CYCLE_DURATION_SECONDS};
 use crate::state::GlobalState;
 
 pub fn handler(
@@ -34,7 +34,9 @@ pub fn handler(
     global.current_phase_supply = 0;
 
     global.numbers_count = 6;
-    global.crypto_count = 1;
+    // Todas as 10 criptos disponiveis desde a fase 1 — nao e' mais
+    // controlado por advance_phase (ver ALL_CRYPTOS_COUNT em constants.rs).
+    global.crypto_count = ALL_CRYPTOS_COUNT;
 
     global.prize_vault = Pubkey::default();
     global.treasury_vault = Pubkey::default();

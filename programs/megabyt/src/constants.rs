@@ -36,6 +36,14 @@ pub const MAX_DRAWS_PER_MONTH: u64 = 40;
 /// tocada.
 pub const MIN_PRIZE_PER_WINNER: u64 = 1_000_000;
 
+/// Quantidade total de criptos definidas acima (CRYPTO_BYTI..CRYPTO_DOGE).
+/// crypto_count sai do initialize ja com esse valor — o jogador pode
+/// escolher qualquer uma das 10 desde a fase 1. advance_phase NAO mexe
+/// mais nisso (PhaseConfig.max_cryptos fica sem uso, de proposito, pra
+/// nao mexer na struct); use a instrucao set_crypto_count se precisar
+/// mudar esse valor numa instancia do protocolo ja inicializada.
+pub const ALL_CRYPTOS_COUNT: u8 = 10;
+
 // ===== PHASE SYSTEM =====
 // 10 levels of emission + game expansion
 // Each phase requires a minimum number of active users (wallets with 2+ tickets)

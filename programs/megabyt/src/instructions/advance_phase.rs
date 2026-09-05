@@ -22,10 +22,14 @@ pub fn handler(ctx: Context<AdvancePhase>) -> Result<()> {
         MegabytError::PhaseThresholdNotMet
     );
 
-    // Advance
+    // Advance. crypto_count NAO e' mais tocado aqui de proposito — todas
+    // as 10 criptos ja ficam disponiveis desde o initialize
+    // (ALL_CRYPTOS_COUNT em constants.rs). PhaseConfig.max_cryptos fica
+    // sem uso (campo morto, mantido na struct por decisao — menos risco
+    // que mexer no layout). Use set_crypto_count se precisar mudar o
+    // valor numa instancia ja inicializada.
     global_state.current_phase = next_phase;
     global_state.numbers_count = config.numbers_per_ticket;
-    global_state.crypto_count = config.max_cryptos;
     global_state.current_phase_supply = config.supply_to_release;
     global_state.total_supply_cap = config.cumulative_supply;
 
@@ -34,7 +38,6 @@ pub fn handler(ctx: Context<AdvancePhase>) -> Result<()> {
     msg!("active_users={}", global_state.active_users);
     msg!("required={}", config.required_active_users);
     msg!("numbers_per_ticket={}", config.numbers_per_ticket);
-    msg!("max_cryptos={}", config.max_cryptos);
     msg!("supply_to_release={}", config.supply_to_release);
     msg!("total_supply_cap={}", config.cumulative_supply);
 
