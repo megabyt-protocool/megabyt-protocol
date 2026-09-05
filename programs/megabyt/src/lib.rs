@@ -4,6 +4,7 @@ pub mod constants;
 pub mod error;
 pub mod instructions;
 pub mod randomness;
+pub mod scoring;
 pub mod state;
 pub mod validation;
 
@@ -92,6 +93,13 @@ pub mod megabyt {
 
     pub fn close_draw(ctx: Context<CloseDraw>) -> Result<()> {
         instructions::close_draw::handler(ctx)
+    }
+
+    pub fn settle_monthly_tickets<'info>(
+        ctx: Context<'_, '_, 'info, 'info, SettleMonthlyTickets<'info>>,
+        batch_size: u32,
+    ) -> Result<()> {
+        instructions::settle_monthly_tickets::handler(ctx, batch_size)
     }
 
     pub fn settle_tickets<'info>(

@@ -142,4 +142,7 @@ pub enum MegabytError {
 
     #[msg("Invalid monthly vault")]
     InvalidMonthlyVault,
+
+    #[msg("Ticket already claimed for this monthly draw")]
+    MonthlyTicketAlreadyClaimed,
 }

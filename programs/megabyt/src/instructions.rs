@@ -19,6 +19,7 @@ pub mod request_monthly_randomness;
 pub mod request_randomness;
 pub mod reset_draw_settlement;
 pub mod set_referrer;
+pub mod settle_monthly_tickets;
 pub mod settle_tickets;
 pub mod verify_randomness;
 
@@ -41,6 +42,7 @@ pub use request_monthly_randomness::*;
 pub use request_randomness::*;
 pub use reset_draw_settlement::*;
 pub use set_referrer::*;
+pub use settle_monthly_tickets::*;
 pub use settle_tickets::*;
 pub use verify_randomness::*;
 
