@@ -3,6 +3,7 @@
 pub mod advance_phase;
 pub mod buy_ticket;
 pub mod buy_ticket_with_referral;
+pub mod cancel_monthly_draw;
 pub mod claim_bonus_ticket;
 pub mod close_draw;
 pub mod close_monthly_draw;
@@ -29,6 +30,7 @@ pub mod verify_randomness;
 pub use advance_phase::*;
 pub use buy_ticket::*;
 pub use buy_ticket_with_referral::*;
+pub use cancel_monthly_draw::*;
 pub use claim_bonus_ticket::*;
 pub use close_draw::*;
 pub use close_monthly_draw::*;

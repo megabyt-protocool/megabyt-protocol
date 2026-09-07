@@ -65,6 +65,10 @@ pub mod megabyt {
         instructions::close_monthly_draw::handler(ctx)
     }
 
+    pub fn cancel_monthly_draw(ctx: Context<CancelMonthlyDraw>) -> Result<()> {
+        instructions::cancel_monthly_draw::handler(ctx)
+    }
+
     pub fn buy_ticket(
         ctx: Context<BuyTicket>,
         numbers: Vec<u8>,

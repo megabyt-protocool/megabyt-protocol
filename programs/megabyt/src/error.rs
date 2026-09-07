@@ -145,4 +145,10 @@ pub enum MegabytError {
 
     #[msg("Ticket already claimed for this monthly draw")]
     MonthlyTicketAlreadyClaimed,
+
+    #[msg("Monthly draw can only be canceled at status 0 (before close_monthly_draw)")]
+    MonthlyDrawNotCancelable,
+
+    #[msg("Only the most recent monthly draw can be canceled")]
+    MonthlyDrawNotLatest,
 }

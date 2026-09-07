@@ -535,6 +535,162 @@
       ]
     },
     {
+      "name": "cancel_monthly_draw",
+      "discriminator": [
+        181,
+        156,
+        22,
+        40,
+        151,
+        82,
+        165,
+        142
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "monthly_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  110,
+                  116,
+                  104,
+                  108,
+                  121,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "monthly_draw",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  110,
+                  116,
+                  104,
+                  108,
+                  121,
+                  45,
+                  100,
+                  114,
+                  97,
+                  119,
+                  45,
+                  118,
+                  51
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "monthly_draw.id",
+                "account": "MonthlyDraw"
+              }
+            ]
+          }
+        },
+        {
+          "name": "prize_vault",
+          "writable": true
+        },
+        {
+          "name": "monthly_vault",
+          "writable": true
+        },
+        {
+          "name": "vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  45,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "claim_bonus_ticket",
       "discriminator": [
         178,
@@ -3091,6 +3247,16 @@
       "code": 6045,
       "name": "MonthlyTicketAlreadyClaimed",
       "msg": "Ticket already claimed for this monthly draw"
+    },
+    {
+      "code": 6046,
+      "name": "MonthlyDrawNotCancelable",
+      "msg": "Monthly draw can only be canceled at status 0 (before close_monthly_draw)"
+    },
+    {
+      "code": 6047,
+      "name": "MonthlyDrawNotLatest",
+      "msg": "Only the most recent monthly draw can be canceled"
     }
   ],
   "types": [
