@@ -40,16 +40,19 @@ pub fn handler(ctx: Context<CloseMonthlyDraw>) -> Result<()> {
     let seed: [u8; 32];
 
     // =========================================================
-    //  SWITCHBOARD VRF / TESTING FALLBACK — mesmo esquema do close_draw.rs
+    //  SEED DO SORTEIO — mesmo esquema do close_draw.rs
     //
-    //  Producao: parse da conta Switchboard real. NO FALLBACK — se o VRF
-    //  nao estiver pronto, a tx falha.
+    //  Produção (`anchor build` sem features): SÓ Switchboard. SEM FALLBACK
+    //  — se o VRF não estiver pronto, a tx falha.
     //
-    //  Teste (cfg feature = "testing", que e' a default em Cargo.toml):
-    //  se o parse falhar (conta mock, como nos testes deste programa),
-    //  usa um seed determinístico fixo pra permitir `anchor test` sem
-    //  oraculo real. NUNCA deve rodar em producao.
+    //  Teste (`--features testing`, nunca no build de produção): se o parse
+    //  da conta Switchboard falhar (conta mock), usa um seed determinístico
+    //  fixo pra `anchor test` rodar sem oráculo. O `verify-no-testing.sh`
+    //  garante que esse caminho não entra no binário deployado.
     // =========================================================
+
+    #[cfg(feature = "testing")]
+    msg!("### BUILD DE TESTE - VRF DETERMINISTICO - NAO USAR EM PRODUCAO ###");
 
     #[cfg(not(feature = "testing"))]
     {

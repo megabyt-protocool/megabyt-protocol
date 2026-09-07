@@ -61,27 +61,22 @@ pub fn handler(ctx: Context<CloseDraw>) -> Result<()> {
     require!(draw.randomness_requested, MegabytError::InvalidDrawState);
 
     // =========================================================
-    //  SWITCHBOARD VRF ONLY — NO MANUAL SEED FALLBACK
+    //  SEED DO SORTEIO
     //
-    //  Parse the Switchboard randomness account, validate it matches
-    //  the one registered in request_randomness, and read the VRF value.
-    //  NO FALLBACK. If VRF not ready, tx fails.
+    //  Produção (`cargo`/`anchor build` sem features): SÓ Switchboard.
+    //  Parseia a conta de randomness, lê o valor VRF. SEM FALLBACK — se o
+    //  VRF não estiver pronto, a tx falha.
+    //
+    //  Teste (`--features testing`, nunca no build de produção): se o parse
+    //  da conta Switchboard falhar (conta mock), usa um seed determinístico
+    //  fixo pra `anchor test` rodar sem oráculo real. O `verify-no-testing.sh`
+    //  garante que esse caminho não entra no binário deployado.
     // =========================================================
 
-    // =========================================================
-    //  SWITCHBOARD VRF / TESTING FALLBACK
-    //
-    //  Production: parse the Switchboard randomness account and
-    //  read the VRF value. NO FALLBACK — if VRF not ready, tx fails.
-    //
-    //  Testing (cfg feature = "testing"): if Switchboard parsing
-    //  fails (mock account), use a deterministic seed so tests
-    //  can run without a real Switchboard oracle.
-    // =========================================================
+    #[cfg(feature = "testing")]
+    msg!("### BUILD DE TESTE - VRF DETERMINISTICO - NAO USAR EM PRODUCAO ###");
 
-    msg!("Using Switchboard VRF (production path)");
-
-    // Validate account matches the one registered in request_randomness
+    // Valida que a conta passada é a mesma registrada em request_randomness
     require_keys_eq!(
         ctx.accounts.randomness_account_data.key(),
         draw.randomness_account,

@@ -9,7 +9,13 @@ crate-type = ["cdylib", "lib"]
 name = "megabyt"
 
 [features]
-default = ["testing"]
+# SEGURO POR PADRÃO: `default` NÃO inclui `testing`. Um `anchor build` /
+# `cargo build` cru produz o binário de produção (VRF Switchboard real, sem
+# fallback determinístico). Os testes ligam a feature explicitamente:
+#   make test        -> anchor test -- --features testing
+#   make test-rust    -> cargo test --lib   (os testes Rust não dependem da feature)
+# Ver DEPLOY.md e scripts/verify-no-testing.sh.
+default = []
 cpi = ["no-entrypoint"]
 no-entrypoint = []
 no-idl = []
