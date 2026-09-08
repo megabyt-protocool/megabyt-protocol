@@ -148,9 +148,11 @@ pub fn handler<'info>(
 
         let hits = count_hits(&ticket.numbers, &result_numbers);
         let crypto_hit = ticket.crypto == result_crypto || ticket.crypto_number == result_crypto;
-        // D3: numbers_count do PROPRIO ticket (nao do MonthlyDraw) — tickets
-        // de fases diferentes continuam classificados de forma justa.
-        let tier = resolve_tier(hits, crypto_hit, ticket.numbers.len() as u8);
+        // Classificacao pelo tamanho do SORTEIO (result_numbers), nunca
+        // pelo tamanho da cartela: cobrir os numeros sorteados = jackpot,
+        // tenha a cartela 6 numeros ou 20. Mesma regra do diario
+        // (settle_tickets.rs) — logica unica em scoring::resolve_tier.
+        let tier = resolve_tier(hits, crypto_hit, result_numbers.len() as u8);
 
         let bump_seed = [claim_bump];
         let signer_seeds: &[&[u8]] = &[

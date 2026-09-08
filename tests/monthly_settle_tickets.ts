@@ -17,7 +17,7 @@ import { Megabyt } from "../target/types/megabyt";
  *  1. Settle em lote de vários tickets (pares [ticket, claim] em
  *     remainingAccounts) — classifica corretamente os tiers, batendo com
  *     um cálculo independente feito aqui em TS (mesma fórmula de
- *     resolve_tier, D3: numbers_count do próprio ticket).
+ *     resolve_tier — déficit sobre o tamanho do SORTEIO, não da cartela).
  *  2. monthly_winner_counts incrementado só para tiers <= 9.
  *  3. Dedup no reenvio: reenviar o MESMO lote falha a transação inteira
  *     (MonthlyTicketAlreadyClaimed) — comportamento DIFERENTE do diário
@@ -119,10 +119,11 @@ describe("monthly_settle_tickets — Sub-etapa 3C (repontuação em lote)", () =
   }
 
   // Mesma fórmula de resolve_tier em scoring.rs — recalculada aqui de
-  // forma independente pra conferir a classificação.
-  function expectedTier(hits: number, cryptoHit: boolean, numbersCount: number): number {
-    if (hits > numbersCount) return 255;
-    const deficit = numbersCount - hits;
+  // forma independente pra conferir a classificação. O 3º argumento é o
+  // tamanho do SORTEIO (result_numbers.length), nunca o da cartela.
+  function expectedTier(hits: number, cryptoHit: boolean, drawnCount: number): number {
+    if (hits > drawnCount) return 255;
+    const deficit = drawnCount - hits;
     if (deficit > 4) return 255;
     const base = deficit * 2;
     return cryptoHit ? base : base + 1;
@@ -470,7 +471,7 @@ describe("monthly_settle_tickets — Sub-etapa 3C (repontuação em lote)", () =
     expectedTierByTicket = new Map();
     for (const t of allTickets) {
       const hits = countHits(t.numbers, resultNumbers);
-      expectedTierByTicket.set(t.pda.toBase58(), expectedTier(hits, cryptoHit, numbersCount));
+      expectedTierByTicket.set(t.pda.toBase58(), expectedTier(hits, cryptoHit, resultNumbers.length));
     }
 
     const designedWinnerTiers = [

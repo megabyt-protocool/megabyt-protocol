@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::error::MegabytError;
+use crate::scoring::{count_hits, resolve_tier};
 use crate::state::{Draw, GlobalState, Ticket};
 
 pub fn handler<'info>(
@@ -56,7 +57,11 @@ pub fn handler<'info>(
         let crypto_hit =
             ticket.crypto == draw.result_crypto || ticket.crypto_number == draw.result_crypto;
 
-        let tier = resolve_tier(hits, crypto_hit, draw.numbers_count);
+        // Classificacao pelo tamanho do SORTEIO (result_numbers), nunca
+        // pelo tamanho da cartela. Ver scoring::resolve_tier. Hoje
+        // result_numbers.len() == draw.numbers_count; quando o sorteio
+        // passar a ser sempre 6 (Etapa 2) isso vira 6 fixo sozinho.
+        let tier = resolve_tier(hits, crypto_hit, draw.result_numbers.len() as u8);
 
         ticket.tier = tier;
         ticket.settled = true;
@@ -105,45 +110,6 @@ pub fn handler<'info>(
     msg!("winner_counts={:?}", draw.winner_counts);
 
     Ok(())
-}
-
-fn count_hits(ticket_numbers: &[u8], result_numbers: &[u8]) -> u8 {
-    let mut hits = 0u8;
-
-    for n in ticket_numbers.iter() {
-        if result_numbers.contains(n) {
-            hits += 1;
-        }
-    }
-
-    hits
-}
-
-/// Classifica um ticket em um tier de premio baseado em acertos.
-///
-/// Formula dinamica baseada em deficit (quantos numeros o ticket errou):
-///
-///   deficit 0 → tier 0 (com crypto) / tier 1 (sem crypto)
-///   deficit 1 → tier 2 / tier 3
-///   deficit 2 → tier 4 / tier 5
-///   deficit 3 → tier 6 / tier 7
-///   deficit 4 → tier 8 / tier 9
-///   deficit > 4 → tier 255 (sem premio)
-///
-/// Funciona para qualquer numbers_count (6..=25), adaptando automaticamente
-/// as fases do sistema. Exemplo:
-///   - Fase 1 (6 numeros): premia 6, 5, 4, 3, 2 acertos
-///   - Fase 10 (25 numeros): premia 25, 24, 23, 22, 21 acertos
-fn resolve_tier(hits: u8, crypto_hit: bool, numbers_count: u8) -> u8 {
-    if hits > numbers_count {
-        return 255;
-    }
-    let deficit = numbers_count - hits;
-    if deficit > 4 {
-        return 255;
-    }
-    let base = deficit * 2;
-    if crypto_hit { base } else { base + 1 }
 }
 
 #[derive(Accounts)]
