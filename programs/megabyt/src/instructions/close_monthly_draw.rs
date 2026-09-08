@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use switchboard_on_demand::accounts::RandomnessAccountData;
 
+use crate::constants::DRAWN_NUMBERS;
 use crate::error::MegabytError;
 use crate::randomness::{generate_unique_numbers, get_randomness_with_tolerance, unbiased_byte};
 use crate::state::{GlobalState, MonthlyDraw};
@@ -101,7 +102,10 @@ pub fn handler(ctx: Context<CloseMonthlyDraw>) -> Result<()> {
 
     let monthly_draw = &mut ctx.accounts.monthly_draw;
 
-    let numbers = generate_unique_numbers(&seed, monthly_draw.numbers_count);
+    // Sorteio: SEMPRE 6 numeros (DRAWN_NUMBERS), qualquer fase. A cartela
+    // pode ter mais (monthly_draw.numbers_count), mas o sorteio e' fixo.
+    let numbers = generate_unique_numbers(&seed, DRAWN_NUMBERS);
+    // Crypto: 1 valor 1..=10, inalterado — mesma logica do diario.
     let crypto = unbiased_byte(&seed, 10, 0) + 1; // 1..=10 sem modulo bias
 
     monthly_draw.result_numbers = numbers.clone();

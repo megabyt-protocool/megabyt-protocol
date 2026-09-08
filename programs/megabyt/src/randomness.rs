@@ -284,3 +284,61 @@ mod parity_tests {
         assert_eq!(a, b);
     }
 }
+
+// =========================================================
+//  Testes da REGRA DO SORTEIO (Etapa 2): o sorteio tira sempre 6 numeros
+//  + 1 crypto, em qualquer fase. Aqui testamos as expressoes exatas que
+//  close_draw.rs e close_monthly_draw.rs usam:
+//    numeros -> generate_unique_numbers(&seed, DRAWN_NUMBERS)
+//    crypto  -> unbiased_byte(&seed, 10, 0) + 1
+// =========================================================
+#[cfg(test)]
+mod drawn_rules_tests {
+    use super::*;
+    use crate::constants::DRAWN_NUMBERS;
+
+    fn seed_from(byte: u8) -> [u8; 32] {
+        [byte; 32]
+    }
+
+    #[test]
+    fn drawn_numbers_e_6() {
+        assert_eq!(DRAWN_NUMBERS, 6);
+    }
+
+    #[test]
+    fn sorteio_gera_sempre_exatamente_6_numeros_unicos_no_range() {
+        // Varre muitos seeds: nao importa o seed, sao sempre 6 numeros
+        // distintos entre 1 e 72.
+        for byte in 0u8..=255 {
+            let seed = seed_from(byte);
+            let numbers = generate_unique_numbers(&seed, DRAWN_NUMBERS);
+
+            assert_eq!(numbers.len(), 6, "seed_byte={}", byte);
+
+            let mut sorted = numbers.clone();
+            sorted.sort_unstable();
+            sorted.dedup();
+            assert_eq!(sorted.len(), 6, "numeros repetidos, seed_byte={}", byte);
+
+            for n in &numbers {
+                assert!((1..=72).contains(n), "fora do range, seed_byte={} n={}", byte, n);
+            }
+        }
+    }
+
+    #[test]
+    fn sorteio_gera_sempre_1_crypto_no_range_1_a_10() {
+        // Expressao identica a' dos dois close: unbiased_byte(seed, 10, 0) + 1.
+        for byte in 0u8..=255 {
+            let seed = seed_from(byte);
+            let crypto = unbiased_byte(&seed, 10, 0) + 1;
+            assert!(
+                (1..=10).contains(&crypto),
+                "crypto fora de 1..=10: seed_byte={} crypto={}",
+                byte,
+                crypto
+            );
+        }
+    }
+}

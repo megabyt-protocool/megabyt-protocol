@@ -286,8 +286,12 @@ describe("pay_winners_batch — pagamento em lote via remaining_accounts", () =>
     resultNumbers = Array.from(discoveryDraw.resultNumbers as Iterable<number>, (n) => Number(n));
     resultCrypto = Number(discoveryDraw.resultCrypto);
 
-    expect(resultNumbers.length).to.equal(numbersCount);
-    expect(new Set(resultNumbers).size).to.equal(numbersCount);
+    // Etapa 2: o sorteio SEMPRE tira 6 números (DRAWN_NUMBERS), qualquer
+    // fase — nunca mais numbersCount (que é o tamanho da cartela).
+    expect(resultNumbers.length).to.equal(6);
+    expect(new Set(resultNumbers).size).to.equal(6);
+    // A crypto continua sendo sorteada normalmente: 1 valor em 1..=10.
+    expect(resultCrypto).to.be.within(1, 10);
     console.log(`    [discovery] resultNumbers=${resultNumbers} resultCrypto=${resultCrypto}`);
   });
 

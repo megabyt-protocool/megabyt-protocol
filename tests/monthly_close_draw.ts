@@ -299,7 +299,11 @@ describe("close_monthly_draw — Sub-etapa 3B (VRF do mensal)", () => {
     discoveryResultNumbers = numbers;
     discoveryResultCrypto = crypto;
 
-    expect(discoveryResultNumbers.length).to.equal(numbersCount);
+    // Etapa 2: sorteio sempre 6 números (DRAWN_NUMBERS), qualquer fase.
+    expect(discoveryResultNumbers.length).to.equal(6);
+    expect(new Set(discoveryResultNumbers).size).to.equal(6);
+    // Crypto continua sorteada normalmente: 1 valor em 1..=10.
+    expect(discoveryResultCrypto).to.be.within(1, 10);
     console.log(`    [discovery] resultNumbers=${discoveryResultNumbers} resultCrypto=${discoveryResultCrypto}`);
   });
 

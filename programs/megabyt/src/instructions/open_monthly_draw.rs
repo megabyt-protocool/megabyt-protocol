@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{transfer, Token, TokenAccount, Transfer};
 
-use crate::constants::MAX_DRAWS_PER_MONTH;
+use crate::constants::{DRAWN_NUMBERS, MAX_DRAWS_PER_MONTH};
 use crate::error::MegabytError;
 use crate::state::{Draw, GlobalState, MonthlyDraw, MonthlyState};
 
@@ -143,7 +143,8 @@ pub fn handler<'info>(
     monthly_draw.jackpot_pool = jackpot_pool;
     monthly_draw.cascade_pool = cascade_pool;
     monthly_draw.numbers_count = numbers_count;
-    monthly_draw.result_numbers = vec![0u8; numbers_count as usize];
+    // O sorteio sempre tira DRAWN_NUMBERS (6) numeros, qualquer fase.
+    monthly_draw.result_numbers = vec![0u8; DRAWN_NUMBERS as usize];
     monthly_draw.result_crypto = 0;
     monthly_draw.randomness_account = Pubkey::default();
     monthly_draw.commit_slot = 0;
@@ -198,7 +199,7 @@ pub struct OpenMonthlyDraw<'info> {
     #[account(
         init,
         payer = admin,
-        space = MonthlyDraw::len(global_state.numbers_count),
+        space = MonthlyDraw::len(),
         seeds = [
             b"monthly-draw-v3",
             (monthly_state.current_monthly_id + 1).to_le_bytes().as_ref()

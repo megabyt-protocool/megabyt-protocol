@@ -15,6 +15,15 @@ pub const CRYPTO_SOL: u8 = 8;
 pub const CRYPTO_TRX: u8 = 9;
 pub const CRYPTO_DOGE: u8 = 10;
 
+// ===== REGRA DO SORTEIO =====
+/// O sorteio SEMPRE tira esta quantidade de numeros, em qualquer fase
+/// (diario e mensal). A cartela pode ter mais numeros conforme a fase
+/// (ver global_state.numbers_count / PHASE_CONFIG), mas o sorteio e' fixo:
+/// o ticket ganha conforme quantos destes numeros a cartela dele cobre.
+/// O sorteio tambem tira 1 crypto (unbiased_byte(seed, 10, 0) + 1) — isso
+/// nao passa por aqui, e' sempre 1 valor.
+pub const DRAWN_NUMBERS: u8 = 6;
+
 // ===== MONTHLY CYCLE =====
 /// Duracao padrao de um ciclo mensal (30 dias em segundos). Usado em
 /// initialize.rs pra popular global_state.monthly_cycle_duration — antes

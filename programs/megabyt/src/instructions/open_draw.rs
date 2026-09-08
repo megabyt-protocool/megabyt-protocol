@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 
+use crate::constants::DRAWN_NUMBERS;
 use crate::error::MegabytError;
 use crate::state::{Draw, GlobalState};
 
@@ -19,7 +20,7 @@ pub struct OpenDraw<'info> {
     #[account(
         init,
         payer = admin,
-        space = Draw::len(global_state.numbers_count),
+        space = Draw::len(),
         seeds = [
             b"draw-v3",
             (global_state.current_draw_id + 1).to_le_bytes().as_ref()
@@ -69,10 +70,11 @@ pub fn handler(ctx: Context<OpenDraw>, duration: i64) -> Result<()> {
     draw_state.winner = Pubkey::default();
 
     draw_state.crypto_number = 0;
-    draw_state.result_numbers = vec![0u8; global_state.numbers_count as usize];
+    // O sorteio sempre tira DRAWN_NUMBERS (6) numeros, qualquer fase.
+    draw_state.result_numbers = vec![0u8; DRAWN_NUMBERS as usize];
     draw_state.result_crypto = 0;
 
-    draw_state.winning_numbers = vec![0u8; global_state.numbers_count as usize];
+    draw_state.winning_numbers = vec![0u8; DRAWN_NUMBERS as usize];
     draw_state.winning_crypto = 0;
 
     draw_state.randomness_account = Pubkey::default();

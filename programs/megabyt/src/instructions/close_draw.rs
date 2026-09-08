@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use switchboard_on_demand::accounts::RandomnessAccountData;
 
+use crate::constants::DRAWN_NUMBERS;
 use crate::error::MegabytError;
 use crate::state::{Draw, GlobalState};
 
@@ -145,7 +146,11 @@ pub fn handler(ctx: Context<CloseDraw>) -> Result<()> {
     //  GERAR RESULTADO
     // =========================================================
 
-    let numbers = generate_unique_numbers(&seed, draw.numbers_count);
+    // Sorteio: SEMPRE 6 numeros (DRAWN_NUMBERS), qualquer fase. A cartela
+    // pode ter mais (draw.numbers_count), mas o sorteio e' fixo.
+    let numbers = generate_unique_numbers(&seed, DRAWN_NUMBERS);
+    // Crypto: 1 valor 1..=10, inalterado — nao depende da fase nem do
+    // numero de numeros sorteados.
     let crypto = unbiased_byte(&seed, 10, 0) + 1; // 1..=10 sem modulo bias
 
     draw.result_numbers = numbers.clone();

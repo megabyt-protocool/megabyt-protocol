@@ -129,7 +129,11 @@ pub struct Draw {
 impl Draw {
     pub const MAX_NUMBERS: usize = 25;
 
-    pub fn len(numbers_count: u8) -> usize {
+    /// O sorteio sempre tira DRAWN_NUMBERS (6) numeros — result_numbers e
+    /// winning_numbers tem tamanho fixo, independente da fase. A cartela
+    /// (Ticket) e' dimensionada a' parte por numbers_count.
+    pub fn len() -> usize {
+        let drawn = crate::constants::DRAWN_NUMBERS as usize;
         8  // discriminator
         + 8     // id
         + 1 + 1 + 1 + 1  // bools
@@ -137,9 +141,9 @@ impl Draw {
         + 8 + 8 + 8 + 8 + 8 + 8  // amounts
         + 32    // winner
         + 1     // crypto_number
-        + 4 + (numbers_count as usize)  // result_numbers Vec
+        + 4 + drawn  // result_numbers Vec
         + 1     // result_crypto
-        + 4 + (numbers_count as usize)  // winning_numbers Vec
+        + 4 + drawn  // winning_numbers Vec
         + 1     // winning_crypto
         + 32 + 8          // randomness account + commit_slot
         + 32              // random_seed
@@ -363,14 +367,16 @@ pub struct MonthlyDraw {
 impl MonthlyDraw {
     pub const MAX_NUMBERS: usize = 25;
 
-    pub fn len(numbers_count: u8) -> usize {
+    /// Sorteio mensal tambem tira sempre DRAWN_NUMBERS (6) numeros.
+    pub fn len() -> usize {
+        let drawn = crate::constants::DRAWN_NUMBERS as usize;
         8   // discriminator
         + 8     // id
         + 8 + 8 // first_draw_id + last_draw_id
         + 8 + 8 + 8 // tickets_target + tickets_processed + tickets_paid
         + 8 + 8 + 8 // pool_snapshot + jackpot_pool + cascade_pool
         + 1     // numbers_count
-        + 4 + (numbers_count as usize) // result_numbers Vec
+        + 4 + drawn // result_numbers Vec
         + 1     // result_crypto
         + 32 + 8 // randomness_account + commit_slot
         + 32    // random_seed
