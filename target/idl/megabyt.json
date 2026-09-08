@@ -2224,6 +2224,14 @@
       ],
       "accounts": [
         {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
           "name": "draw",
           "writable": true,
           "pda": {
@@ -2253,7 +2261,31 @@
           "writable": true
         },
         {
-          "name": "global_state"
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "prize_vault",

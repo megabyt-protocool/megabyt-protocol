@@ -500,6 +500,7 @@ describe("pay_winners_batch — pagamento em lote via remaining_accounts", () =>
     await (program.methods
       .payWinnersBatch(1)
       .accounts as any)({
+        admin: admin.publicKey,
         draw: testDrawPda,
         ticket: w.ticket,
         globalState,
@@ -530,6 +531,7 @@ describe("pay_winners_batch — pagamento em lote via remaining_accounts", () =>
     await (program.methods
       .payWinnersBatch(2)
       .accounts as any)({
+        admin: admin.publicKey,
         draw: testDrawPda,
         ticket: w1.ticket,
         globalState,
@@ -571,6 +573,7 @@ describe("pay_winners_batch — pagamento em lote via remaining_accounts", () =>
     await (program.methods
       .payWinnersBatch(2)
       .accounts as any)({
+        admin: admin.publicKey,
         draw: testDrawPda,
         ticket: w1.ticket,
         globalState,
@@ -591,5 +594,35 @@ describe("pay_winners_batch — pagamento em lote via remaining_accounts", () =>
     expect(after2.amount).to.equal(before2.amount, "reenvio do lote NÃO deveria transferir de novo (winner 2)");
     expect(Number(drawAfter.ticketsPaid)).to.equal(Number(drawBefore.ticketsPaid));
     expect(Number(drawAfter.status)).to.equal(4);
+  });
+
+  it("não-admin é rejeitado (M-1: pay_winners_batch agora é admin-gated)", async () => {
+    const intruder = Keypair.generate();
+    const airdropSig = await connection.requestAirdrop(intruder.publicKey, anchor.web3.LAMPORTS_PER_SOL);
+    await connection.confirmTransaction(airdropSig, "confirmed");
+
+    const w = winners[0];
+    let threw = false;
+    let errText = "";
+    try {
+      await (program.methods
+        .payWinnersBatch(1)
+        .accounts as any)({
+          admin: intruder.publicKey,
+          draw: testDrawPda,
+          ticket: w.ticket,
+          globalState,
+          prizeVault,
+          userTokenAccount: w.ata,
+          vaultAuthority,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        }).signers([intruder]).rpc();
+    } catch (e: any) {
+      threw = true;
+      errText = e?.message || String(e);
+    }
+
+    expect(threw).to.equal(true, "não-admin NÃO pode chamar pay_winners_batch");
+    expect(errText).to.match(/Unauthorized|has[_ ]one|ConstraintHasOne/i);
   });
 });

@@ -259,6 +259,7 @@ describe("megabyt", () => {
     await (program.methods
       .payWinnersBatch(1)
       .accounts as any)({
+        admin: admin.publicKey,
         draw: drawStatePda,
         ticket,
         globalState,

@@ -83,11 +83,11 @@ pub fn handler<'info>(
     // -------------------------------------------------------------
     {
         let paid = pay_ticket(
-            &mut ctx.accounts.ticket,
-            &ctx.accounts.user_token_account,
+            &mut *ctx.accounts.ticket,
+            &*ctx.accounts.user_token_account,
             draw_key,
             &prize_per_tier,
-            &ctx.accounts.prize_vault,
+            &*ctx.accounts.prize_vault,
             &vault_authority_ai,
             &token_program_ai,
             signer,
@@ -115,7 +115,7 @@ pub fn handler<'info>(
             &ata_acc,
             draw_key,
             &prize_per_tier,
-            &ctx.accounts.prize_vault,
+            &*ctx.accounts.prize_vault,
             &vault_authority_ai,
             &token_program_ai,
             signer,
@@ -213,23 +213,36 @@ fn pay_ticket<'info>(
 
 #[derive(Accounts)]
 pub struct PayWinnersBatch<'info> {
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    // NOTA: os `Account<T>` grandes desta struct sao `Box<>` de proposito.
+    // Adicionar `admin` + o `has_one`/seeds no global_state levou o
+    // try_accounts gerado pelo #[derive(Accounts)] a estourar o limite de
+    // stack frame do BPF (4096 bytes). Box<> move as contas pro heap.
+    // Mesmo padrao das 8 instrucoes do sorteio mensal. Nao muda logica.
     #[account(
         mut,
         seeds = [b"draw-v3", &draw.id.to_le_bytes()],
         bump = draw.bump
     )]
-    pub draw: Account<'info, Draw>,
+    pub draw: Box<Account<'info, Draw>>,
 
     #[account(mut)]
-    pub ticket: Account<'info, Ticket>,
+    pub ticket: Box<Account<'info, Ticket>>,
 
-    pub global_state: Account<'info, GlobalState>,
+    #[account(
+        seeds = [b"global-state-v3"],
+        bump,
+        has_one = admin @ MegabytError::Unauthorized
+    )]
+    pub global_state: Box<Account<'info, GlobalState>>,
 
     #[account(mut)]
-    pub prize_vault: Account<'info, TokenAccount>,
+    pub prize_vault: Box<Account<'info, TokenAccount>>,
 
     #[account(mut)]
-    pub user_token_account: Account<'info, TokenAccount>,
+    pub user_token_account: Box<Account<'info, TokenAccount>>,
 
     /// CHECK: PDA authority for vault signing
     #[account(
