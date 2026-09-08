@@ -1,7 +1,11 @@
 # MegaByt — Progresso do Sorteio Mensal
 
-> Checkpoint atualizado em **2026-09-07**.
+> Checkpoint atualizado em **2026-09-08**.
 > Branch de trabalho: `feature/monthly-draw-batch-pay` (no GitHub, **não** mergeada na `main`).
+>
+> ⚠️ **A PRÓXIMA SESSÃO COMEÇA PELA MUDANÇA DE DESIGN DO JOGO — ver §3-B.** O jogo no
+> código hoje é diferente do que o dono quer (penaliza cartela grande / exige acertar
+> todos os números da cartela). É o coração do sorteio (diário + mensal).
 
 ---
 
@@ -18,6 +22,7 @@
 - [x] **3D** — `finalize_monthly_payouts` + `payouts.rs` (jackpot, cascata + anti-esmola, sweep-espelho, conservação)
 - [x] **3E** — `pay_monthly_winners_batch` (lote real, idempotente, status 3→4)
 - [x] **`cancel_monthly_draw`** — escape hatch de emergência (resolve o A-1 da auditoria, ver §3)
+- [x] **`pay_winners_batch` admin-gated** — M-1 da auditoria resolvido (commit `65aa360`, ver §3-A)
 
 **Ciclo mensal completo:** `open → request → close → settle → finalize → pay` (+ `cancel` no status 0).
 
@@ -32,9 +37,10 @@
 
 ### Testes
 
-- [x] `make test` (`anchor test`): **65 passing / 0 failing / 1 pending**
+- [x] `make test` (`anchor test`): **66 passing / 0 failing / 1 pending**
 - [x] `make test-rust` (`cargo test --lib`): **11 passing / 0 failing** (paridade `randomness`/`scoring`/`payouts` + jackpot)
 - [x] Prova isolada "jackpot sem ganhador → cascata ainda paga" (Draw C em `tests/monthly_finalize_payouts.ts`)
+- [x] `pay_winners_batch` admin-gated: teste "não-admin é rejeitado" em `tests/pay_winners_batch.ts`
 - [x] `cancel_monthly_draw`: `tests/monthly_cz_cancel_draw.ts` (cancel no status 0 c/ conservação e rollback; rejeição em status 1/2/3/4; não-admin rejeitado)
 - 1 pending: `init_monthly_vault rejeita mint diferente` — só roda em estado 100% limpo (conta singleton já existe na suíte)
 
@@ -63,8 +69,12 @@ Escopo: 8 instruções mensais + `set_crypto_count` + refactor do `pay_winners_b
 
 - 🔴 **Crítico: 0.** Conservação fecha em todos os caminhos (verificado matematicamente + rodando na devnet), vaults blindados (authority PDA, não substituível), dedup e anti-duplo-pagamento sólidos, aritmética toda `checked_*` com `overflow-checks = true`, máquina de estados impede pular fases.
 - 🟠 **Alto: 1 — A-1** (sorteio mensal sem recuperação → brick permanente com fundos travados). **✅ RESOLVIDO** com `cancel_monthly_draw` (ver §3).
-- 🟡 **Médio: 6** (M-1 a M-6, ver §4).
+- 🟡 **Médio: 6** — **M-1 ✅ RESOLVIDO** (ver §3-A); M-2 a M-6 abertos (ver §4).
 - 🟢 **Baixo: 7** (B-1 a B-7, ver §4).
+
+> ⚠️ **Fora da auditoria de segurança, encontramos em 2026-09-08 um ERRO DE REGRA DE
+> NEGÓCIO grave no coração do jogo (scoring de tier) — ver §3-B. Não é de segurança
+> (não perde/rouba dinheiro), mas o jogo no código está diferente do que o dono quer.**
 
 Paridade dos módulos compartilhados **confirmada byte-a-byte** vs as cópias privadas do diário (`scoring` vs `settle_tickets`, `randomness` vs `close_draw`, `payouts` vs `finalize_payouts`).
 
@@ -87,6 +97,59 @@ Preocupações de contexto (não achados formais): o caminho VRF de produção (
 
 ---
 
+## 3-A. M-1 RESOLVIDO — `pay_winners_batch` admin-gated (2026-09-08, commit `65aa360`)
+
+**Problema:** `pay_winners_batch` (diário) era **permissionless** — sem `admin` Signer nenhum, e o `global_state` sem nem validação de PDA. Não roubava (fundos vão pro `ticket.owner`, authority é PDA), mas inconsistente com `pay_monthly_winners_batch` (admin-only) e ampliava o raio de qualquer bug futuro de cálculo de prêmio.
+
+**Solução:**
+- `PayWinnersBatch`: `+ admin: Signer` + `has_one = admin` no `global_state` (que ganhou também `seeds`/`bump` da PDA canônica).
+- Os 5 `Account<T>` grandes viraram `Box<Account<T>>` — adicionar `admin` + a maquinária de `has_one` estourou o stack frame do BPF (4352 > 4096). Mesmo padrão das 8 instruções mensais. Handler: só 4 ajustes de deref (`&mut *`, `&*`) nas chamadas de `pay_ticket()`. **Zero mudança de lógica de pagamento.**
+- Testes: 4 chamadas passam `admin`; **novo teste** "não-admin é rejeitado". `make test` = 66 verdes.
+- **Pendente:** os 19 scripts de operação diária que chamam `pay_winners_batch` vão precisar passar `admin` — ficam pro upgrade da devnet (que já é pendência).
+
+---
+
+## 3-B. ⚠️ DECISÃO DE DESIGN DO JOGO — REFAZER O SCORING (próxima sessão)
+
+Descoberto em **2026-09-08**. **Não é bug de segurança** (não perde/rouba dinheiro, conservação continua fechando). É que **o jogo no código está diferente do que o dono quer.**
+
+### JOGO CORRETO (o que o dono quer)
+
+- O sorteio **SEMPRE tira 6 números + 1 crypto** (fixo, em todas as fases).
+- As cartelas podem ter **MAIS de 6 números** (6, 8, 10, … conforme a fase permite).
+- **Cartela maior custa MAIS CARO.**
+- Ganha quem tem os **6 números sorteados CONTIDOS na cartela**. Tier = f(quantos dos 6 sorteados estão na cartela).
+- Cartela maior = mais chance de cobrir os 6 (você pagou mais por isso).
+- **NUNCA** exigir "acertar todos os números da cartela".
+
+### JOGO ATUAL (errado, no código hoje)
+
+- O sorteio tira quantidade **VARIÁVEL** — `numbers_count` = `PHASE_CONFIG.numbers_per_ticket` = **6, 6, 7, 8, 10, 12, 15, 18, 22, 25** por fase (`close_draw.rs:148` / `close_monthly_draw.rs:104`, `generate_unique_numbers(&seed, numbers_count)`).
+- A cartela é **obrigada** a ter exatamente `numbers_count` números (`buy_ticket.rs:95`, `require!(numbers.len() == numbers_count)`) — cartela grande é impossível.
+- **Preço fixo** (`global_state.ticket_price`, um valor só).
+- Ganha quem acerta **TODOS** os números da cartela: `resolve_tier` faz `deficit = numbers_count - hits`; tier 0 exige `deficit == 0` → `hits == numbers_count`.
+- **O mensal ainda penaliza mais:** `settle_monthly_tickets.rs:153` passa `ticket.numbers.len()` como `numbers_count` — cartela grande → `deficit` grande → tier ruim ou `255` (nada). Diário e mensal **inconsistentes** (diário passa `draw.numbers_count`, linha 59).
+- **Trace confirmado:** cartela de 10, sorteio `[5,17,27,32,51,57]` (6 bolas), as 6 na cartela, crypto certa → **tier 8** (não jackpot). Cartela de 11 → **255 (nada)**.
+
+### 5 pontos a mudar (fazer EM ETAPAS testadas, com PLANO antes)
+
+| # | Onde | Mudança |
+|---|---|---|
+| **A** | `scoring.rs` `resolve_tier` (~linha 47) + call site `settle_monthly_tickets.rs:153` | `deficit = 6 - hits` (6 = nº fixo de bolas), **não** `numbers_count - hits`. O tamanho da cartela nunca entra na conta do tier. |
+| **B** | `settle_tickets.rs` `resolve_tier` (linha 141) + call site (linha 59) | Mesma correção no diário. |
+| **C** | `close_draw.rs:148` / `close_monthly_draw.rs:104` | `generate_unique_numbers(&seed, 6)` **sempre** (constante, não `numbers_count`). |
+| **D** | `buy_ticket.rs:95` (`validate_numbers`) | Permitir cartela de tamanho variável (`>= 6`, com um MAX por fase — provavelmente o `numbers_per_ticket` da fase vira o *teto*, não o valor exato). |
+| **E** | `buy_ticket.rs` (`ticket_price`) | Preço **variável por tamanho de cartela** (mais números = mais caro). Definir a fórmula com o dono. |
+
+### AVISOS
+
+- **Estrutura do `Ticket` provavelmente muda** (o `numbers: Vec<u8>` já é variável, mas a semântica de `numbers_count` some / muda) → **tickets antigos da devnet ficam incompatíveis de novo.** Aceitar (é ambiente de teste), igual ao upgrade anterior.
+- É o **coração do jogo — diário E mensal.** `count_hits` já está certo (conta a interseção); o problema é só `resolve_tier` + o que alimenta ele + o sorteio + a compra.
+- Impacta os **BPS de tier** e a economia (cartela grande paga mais e ganha mais) — revisar o `PHASE_CONFIG` e o `TIER_BPS` junto.
+- Precisa de **spec escrita do dono** pro item E (fórmula de preço) e pro item D (teto de números por fase) antes de codar.
+
+---
+
 ## 4. PENDÊNCIAS — achados de auditoria abertos (decisões de produto / melhorias, NÃO urgentes)
 
 Nenhum trava produção sozinho; nenhum perde/rouba dinheiro. Retomar caso a caso.
@@ -95,7 +158,7 @@ Nenhum trava produção sozinho; nenhum perde/rouba dinheiro. Retomar caso a cas
 
 | # | O que é | Nota |
 |---|---|---|
-| **M-1** | **`pay_winners_batch` (diário) é PERMISSIONLESS** — sem `admin` Signer. Qualquer um paga winners (fundos vão pro dono legítimo, não rouba) e avança `draw.status` pra 4. Inconsistente com `pay_monthly_winners_batch` (admin-gated). **Pré-existente** — o refactor não introduziu. | Decidir: gate por admin (alinhar com o mensal) ou aceitar o modelo "crank permissionless". |
+| ~~**M-1**~~ | ~~`pay_winners_batch` (diário) é PERMISSIONLESS~~ | ✅ **RESOLVIDO** em 2026-09-08 (§3-A). Agora é admin-gated. |
 | **M-2** | **Mensal que cruza transição de fase pontua enviesado.** `numbers_per_ticket` muda por fase (6→7→8…). Um mensal com range de 2 fases usa UM `numbers_count` — tickets do formato maior num mensal menor não podem ganhar o jackpot. Não perde dinheiro (jackpot não reclamado rola). | Decisão de produto: como o mensal deve tratar ranges multi-fase. |
 | **M-3** | **Primeira mensal não é obrigada a começar na draw 1.** Se abrir em, digamos, draw 50, os holders das draws 1–49 contribuíram 20% pro pool mas nunca podem ganhar um mensal. Sem enforcement on-chain. | Convenção operacional (começar em 1) ou guard on-chain. |
 | **M-4** | **`open_monthly_draw` não impede abrir a mensal N+1 antes da N estar paga.** Conservação se mantém (snapshot por-draw), mas comingla fundos no `monthly_vault` e confunde a contabilidade. | Guard "termine a anterior" ou aceitar. |
@@ -131,20 +194,21 @@ Nenhum trava produção sozinho; nenhum perde/rouba dinheiro. Retomar caso a cas
 
 ## 5. ESTADO ATUAL — pra retomar
 
-- **Branch:** `feature/monthly-draw-batch-pay` — **em dia com o `origin`** (HEAD `253ac48`, 0 commits à frente). Não mergeada na `main`.
-- **Testes:** `make test` = **65 passing / 0 failing / 1 pending** · `make test-rust` = **11 passing**.
+- **Branch:** `feature/monthly-draw-batch-pay` — **em dia com o `origin`** (HEAD `65aa360`, 0 commits à frente). Não mergeada na `main`.
+- **Testes:** `make test` = **66 passing / 0 failing / 1 pending** · `make test-rust` = **11 passing**.
 - **Build:** `default = []` (seguro por padrão). `make build-prod` gera o binário de produção verificado. Fluxo em `DEPLOY.md`.
-- **Devnet:** programa no slot `493679424` (2026-09-05), buildado **COM `testing`**, **25 instruções** (a branch tem 26 — falta o `cancel_monthly_draw` e a limpeza do build). `monthly_state`/`monthly_vault` criados, `crypto_count = 10`. Monthly draw #1 completo (smoke test). `last_covered_draw_id = 287` → próximo mensal a partir da draw 288. `monthly_pool ≈ 1.187 USDT` (rollover do smoke test + dinheiro de teste).
+- **Devnet:** programa no slot `493679424` (2026-09-05), buildado **COM `testing`**, **25 instruções** (a branch tem **27** — faltam `cancel_monthly_draw`, o `pay_winners_batch` admin-gated, e a limpeza do build). `monthly_state`/`monthly_vault` criados, `crypto_count = 10`. Monthly draw #1 completo (smoke test). `last_covered_draw_id = 287` → próximo mensal a partir da draw 288. `monthly_pool ≈ 1.187 USDT` (rollover do smoke test + dinheiro de teste).
 - **Rollback do bytecode devnet:** `scripts/rollback/devnet_2026-04-20_slot456737049.so` (sha `38f5679e…`).
 
 ### Próximos passos sugeridos (ordem)
 
-1. Decidir merge `feature → main` (e se envia a `main` local).
-2. Rodar `make build-prod` e fazer o upgrade da devnet pro binário de produção (26 instruções, sem `testing`) — sabendo que aí o fluxo via keypair-lixo para; precisa dos scripts de Switchboard real.
-3. Resolver M-1 (gate do `pay_winners_batch`) e decidir sobre M-2/M-3 (fairness) — são decisões de produto.
-4. Rent das `MonthlyClaim`.
-5. Scripts de operação + teste de escala.
-6. Auditoria externa → frontend → mainnet.
+1. 🔴 **A PRÓXIMA SESSÃO COMEÇA AQUI: refazer o scoring do jogo (§3-B).** Pegar a spec escrita do dono (fórmula de preço por tamanho de cartela + teto de números por fase), fazer um PLANO por etapas, e atacar os 5 pontos (A–E) em etapas testadas. É o coração do jogo (diário + mensal).
+2. Decidir merge `feature → main` (e se envia a `main` local).
+3. `make build-prod` + upgrade da devnet pro binário de produção (sem `testing`) — sabendo que aí o fluxo via keypair-lixo para; precisa dos scripts de Switchboard real. **Fazer depois do item 1**, pra não deployar duas vezes.
+4. Decidir sobre M-2/M-3 (fairness de mensal multi-fase / primeira mensal) — provavelmente resolvidos "de graça" pela mudança do §3-B (sorteio sempre 6).
+5. Rent das `MonthlyClaim`.
+6. Scripts de operação + teste de escala.
+7. Auditoria externa → frontend → mainnet.
 
 ---
 
@@ -152,7 +216,7 @@ Nenhum trava produção sozinho; nenhum perde/rouba dinheiro. Retomar caso a cas
 
 ```bash
 # testes
-make test        # 65 (anchor, com --features testing)
+make test        # 66 (anchor, com --features testing)
 make test-rust   # 11 (cargo --lib)
 
 # build de produção (sem testing) + verificação
@@ -173,6 +237,7 @@ solana program deploy scripts/rollback/devnet_2026-04-20_slot456737049.so \
 ## Commits da branch (todos no `origin`)
 
 ```
+65aa360 fix(security): pay_winners_batch admin-gated (M-1)
 253ac48 feat(monthly): cancel_monthly_draw — escape hatch de emergência (A-1)
 62d2a3c build: default sem feature testing — produção segura por padrão
 5573412 docs: checkpoint do progresso do sorteio mensal (2026-09-05)
