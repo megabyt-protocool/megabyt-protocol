@@ -50,7 +50,7 @@ pub struct BuyTicketWithReferral<'info> {
     #[account(
         init,
         payer = user,
-        space = Ticket::len(&Pubkey::default(), &Pubkey::default(), global_state.numbers_count),
+        space = Ticket::len(),
         seeds = [
             b"ticket",
             draw_state.key().as_ref(),

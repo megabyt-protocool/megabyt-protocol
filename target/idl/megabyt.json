@@ -2638,6 +2638,63 @@
       ]
     },
     {
+      "name": "set_numbers_count",
+      "discriminator": [
+        95,
+        255,
+        126,
+        223,
+        191,
+        118,
+        55,
+        113
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "numbers_count",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "set_referrer",
       "discriminator": [
         115,

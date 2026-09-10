@@ -184,15 +184,19 @@ pub struct Ticket {
 }
 
 impl Ticket {
-    /// Dynamic length: 4 bytes for Vec length prefix + up to 25 bytes for numbers
+    /// Etapa 3: cartela de tamanho variável (6..=25 números, ver
+    /// validation::validate_numbers). O `space` da conta e' alocado sempre
+    /// pro teto MAX_NUMBERS — o Vec<u8> de `numbers` pode ser menor na
+    /// pratica, mas a conta precisa do espaco máximo desde a criacao
+    /// (Anchor `init` nao faz realloc automatico).
     pub const MAX_NUMBERS: usize = 25;
 
-    pub fn len(_owner: &Pubkey, _draw: &Pubkey, numbers_count: u8) -> usize {
+    pub fn len() -> usize {
         8  // discriminator
         + 32    // owner
         + 32    // draw
         + 8     // draw_id
-        + 4 + (numbers_count as usize)  // Vec<u8>: 4 bytes length + data
+        + 4 + Self::MAX_NUMBERS  // Vec<u8>: 4 bytes length + data (sempre aloca o teto)
         + 1     // crypto
         + 1     // crypto_number
         + 1     // claimed
