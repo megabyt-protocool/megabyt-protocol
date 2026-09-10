@@ -1,11 +1,13 @@
 # MegaByt — Progresso do Sorteio Mensal
 
-> Checkpoint atualizado em **2026-09-08**.
+> Checkpoint atualizado em **2026-09-10**.
 > Branch de trabalho: `feature/monthly-draw-batch-pay` (no GitHub, **não** mergeada na `main`).
 >
-> ⚠️ **A PRÓXIMA SESSÃO COMEÇA PELA MUDANÇA DE DESIGN DO JOGO — ver §3-B.** O jogo no
-> código hoje é diferente do que o dono quer (penaliza cartela grande / exige acertar
-> todos os números da cartela). É o coração do sorteio (diário + mensal).
+> ⚠️ **A PRÓXIMA SESSÃO COMEÇA PELA ETAPA 4 (última da correção do jogo, §3-B) —
+> preço combinatório `C(n,6) × k` + multi-crypto.** Etapas 1, 2 e 3 já estão feitas
+> e testadas (73 verdes). Falta só o preço variável por tamanho de cartela e a
+> cartela poder escolher mais de 1 crypto — depois disso o jogo bate 100% com o
+> que o dono quer.
 
 ---
 
@@ -25,6 +27,18 @@
 - [x] **`pay_winners_batch` admin-gated** — M-1 da auditoria resolvido (commit `65aa360`, ver §3-A)
 
 **Ciclo mensal completo:** `open → request → close → settle → finalize → pay` (+ `cancel` no status 0).
+
+### Correção do jogo — Etapas 1/2/3 de 4 (ver §3-B), commits `9f46b13`/`5f7c759`/`f1ec991`
+
+- [x] **Etapa 1** — `resolve_tier` usa `deficit = 6 (DRAWN_NUMBERS) - hits`, nunca o tamanho da cartela. Diário e mensal consolidados numa fonte só (`scoring.rs`).
+- [x] **Etapa 2** — sorteio sempre tira 6 números (`DRAWN_NUMBERS`), em qualquer fase, diário e mensal.
+- [x] **Etapa 3** — cartela de tamanho variável (Opção A do plano: só os números variam nesta etapa; crypto e preço ficam pra Etapa 4):
+  - `validate_numbers`: de "== numbers_count" (exato) para "6..=numbers_count" (teto por fase, não mais valor exato).
+  - `Ticket::len()` sem parâmetro — aloca sempre o teto `MAX_NUMBERS=25`.
+  - Nova instrução `set_numbers_count` (mirror de `set_crypto_count`, admin-gated, valida 6..=25).
+  - Testes: unitários da validação (6/7/8/10/25 aceitos, 5/11/fora-de-range/duplicata rejeitados) + integração (`tests/set_numbers_count.ts`: compra por tamanho, admin-gating) + **bônus E2E fechando o loop com a Etapa 1**: cartela de 8 cobrindo os 6 sorteados + crypto certa vence o jackpot (tier 0) de verdade via `settle_tickets` on-chain.
+  - `make test`: 66 → **73 passing** / 0 failing / 1 pending. `make test-rust`: 21 → **27 passing**.
+- [ ] **Etapa 4 (próxima, última desta correção)** — preço combinatório `C(n,6) × k` + multi-crypto (ver §3-B, itens D/E consolidados).
 
 ### Build seguro por padrão ✅ (era o item 1 das pendências — RESOLVIDO em 2026-09-07)
 
@@ -109,9 +123,9 @@ Preocupações de contexto (não achados formais): o caminho VRF de produção (
 
 ---
 
-## 3-B. ⚠️ DECISÃO DE DESIGN DO JOGO — REFAZER O SCORING (próxima sessão)
+## 3-B. ⚠️ DECISÃO DE DESIGN DO JOGO — REFAZER O SCORING (Etapas 1-3 feitas, falta a 4)
 
-Descoberto em **2026-09-08**. **Não é bug de segurança** (não perde/rouba dinheiro, conservação continua fechando). É que **o jogo no código está diferente do que o dono quer.**
+Descoberto em **2026-09-08**. **Não é bug de segurança** (não perde/rouba dinheiro, conservação continua fechando). Era que **o jogo no código estava diferente do que o dono quer.** Etapas 1 (scoring), 2 (sorteio sempre 6) e 3 (cartela variável) já resolvidas — ver checklist em §1. Falta só a Etapa 4 (preço + multi-crypto) pra fechar de vez.
 
 ### JOGO CORRETO (o que o dono quer)
 
@@ -122,31 +136,31 @@ Descoberto em **2026-09-08**. **Não é bug de segurança** (não perde/rouba di
 - Cartela maior = mais chance de cobrir os 6 (você pagou mais por isso).
 - **NUNCA** exigir "acertar todos os números da cartela".
 
-### JOGO ATUAL (errado, no código hoje)
+### JOGO ORIGINAL (errado, antes das Etapas 1-3 — histórico)
 
-- O sorteio tira quantidade **VARIÁVEL** — `numbers_count` = `PHASE_CONFIG.numbers_per_ticket` = **6, 6, 7, 8, 10, 12, 15, 18, 22, 25** por fase (`close_draw.rs:148` / `close_monthly_draw.rs:104`, `generate_unique_numbers(&seed, numbers_count)`).
-- A cartela é **obrigada** a ter exatamente `numbers_count` números (`buy_ticket.rs:95`, `require!(numbers.len() == numbers_count)`) — cartela grande é impossível.
+- O sorteio tirava quantidade **VARIÁVEL** — `numbers_count` = `PHASE_CONFIG.numbers_per_ticket` = **6, 6, 7, 8, 10, 12, 15, 18, 22, 25** por fase (`close_draw.rs:148` / `close_monthly_draw.rs:104`, `generate_unique_numbers(&seed, numbers_count)`).
+- A cartela era **obrigada** a ter exatamente `numbers_count` números (`buy_ticket.rs:95`, `require!(numbers.len() == numbers_count)`) — cartela grande era impossível.
 - **Preço fixo** (`global_state.ticket_price`, um valor só).
-- Ganha quem acerta **TODOS** os números da cartela: `resolve_tier` faz `deficit = numbers_count - hits`; tier 0 exige `deficit == 0` → `hits == numbers_count`.
-- **O mensal ainda penaliza mais:** `settle_monthly_tickets.rs:153` passa `ticket.numbers.len()` como `numbers_count` — cartela grande → `deficit` grande → tier ruim ou `255` (nada). Diário e mensal **inconsistentes** (diário passa `draw.numbers_count`, linha 59).
-- **Trace confirmado:** cartela de 10, sorteio `[5,17,27,32,51,57]` (6 bolas), as 6 na cartela, crypto certa → **tier 8** (não jackpot). Cartela de 11 → **255 (nada)**.
+- Ganhava quem acertasse **TODOS** os números da cartela: `resolve_tier` fazia `deficit = numbers_count - hits`; tier 0 exigia `deficit == 0` → `hits == numbers_count`.
+- **O mensal ainda penalizava mais:** `settle_monthly_tickets.rs:153` passava `ticket.numbers.len()` como `numbers_count` — cartela grande → `deficit` grande → tier ruim ou `255` (nada). Diário e mensal **inconsistentes** (diário passava `draw.numbers_count`, linha 59).
+- **Trace confirmado (antes da correção):** cartela de 10, sorteio `[5,17,27,32,51,57]` (6 bolas), as 6 na cartela, crypto certa → **tier 8** (não jackpot). Cartela de 11 → **255 (nada)**.
 
-### 5 pontos a mudar (fazer EM ETAPAS testadas, com PLANO antes)
+### 5 pontos a mudar (fazer EM ETAPAS testadas, com PLANO antes) — A a D feitos, falta E
 
-| # | Onde | Mudança |
-|---|---|---|
-| **A** | `scoring.rs` `resolve_tier` (~linha 47) + call site `settle_monthly_tickets.rs:153` | `deficit = 6 - hits` (6 = nº fixo de bolas), **não** `numbers_count - hits`. O tamanho da cartela nunca entra na conta do tier. |
-| **B** | `settle_tickets.rs` `resolve_tier` (linha 141) + call site (linha 59) | Mesma correção no diário. |
-| **C** | `close_draw.rs:148` / `close_monthly_draw.rs:104` | `generate_unique_numbers(&seed, 6)` **sempre** (constante, não `numbers_count`). |
-| **D** | `buy_ticket.rs:95` (`validate_numbers`) | Permitir cartela de tamanho variável (`>= 6`, com um MAX por fase — provavelmente o `numbers_per_ticket` da fase vira o *teto*, não o valor exato). |
-| **E** | `buy_ticket.rs` (`ticket_price`) | Preço **variável por tamanho de cartela** (mais números = mais caro). Definir a fórmula com o dono. |
+| # | Onde | Mudança | Status |
+|---|---|---|---|
+| **A** | `scoring.rs` `resolve_tier` (~linha 47) + call site `settle_monthly_tickets.rs` | `deficit = 6 - hits` (6 = nº fixo de bolas), **não** `numbers_count - hits`. O tamanho da cartela nunca entra na conta do tier. | ✅ **Etapa 1** (`9f46b13`) |
+| **B** | `settle_tickets.rs` `resolve_tier` + call site | Mesma correção no diário. | ✅ **Etapa 1** (`9f46b13`) |
+| **C** | `close_draw.rs` / `close_monthly_draw.rs` | `generate_unique_numbers(&seed, 6)` **sempre** (constante, não `numbers_count`). | ✅ **Etapa 2** (`5f7c759`) |
+| **D** | `buy_ticket.rs` (`validate_numbers`) + `Ticket::len()` + `set_numbers_count` | Cartela de tamanho variável: `6..=numbers_count` (teto por fase, não valor exato). `numbers_count` continua vindo do `PHASE_CONFIG`/`advance_phase`, mas agora é teto; nova instrução `set_numbers_count` corrige o teto numa instância já inicializada. | ✅ **Etapa 3** (`f1ec991`) |
+| **E** | `buy_ticket.rs` / `buy_ticket_with_referral.rs` / `claim_bonus_ticket.rs` (preço) + `validate_crypto` / cartela (multi-crypto) | **Preço combinatório:** `ticket_price(n) = C(n, 6) × k` — `n` = tamanho da cartela, `C(n,6)` = combinações de 6 dentre os `n` números escolhidos (mede quantas "apostas de 6" a cartela de fato cobre), `k` = preço-base por combinação (spec do dono). **Multi-crypto:** a cartela passa a poder escolher **mais de 1** crypto (hoje é sempre exatamente 1, `PhaseConfig.max_cryptos` já existe mas está morto desde a Etapa do `crypto_count`) — acertar QUALQUER uma das escolhidas conta como crypto certa; preço sobe também com o nº de criptos escolhidas. | ⏳ **Etapa 4 (próxima)** |
 
 ### AVISOS
 
-- **Estrutura do `Ticket` provavelmente muda** (o `numbers: Vec<u8>` já é variável, mas a semântica de `numbers_count` some / muda) → **tickets antigos da devnet ficam incompatíveis de novo.** Aceitar (é ambiente de teste), igual ao upgrade anterior.
-- É o **coração do jogo — diário E mensal.** `count_hits` já está certo (conta a interseção); o problema é só `resolve_tier` + o que alimenta ele + o sorteio + a compra.
-- Impacta os **BPS de tier** e a economia (cartela grande paga mais e ganha mais) — revisar o `PHASE_CONFIG` e o `TIER_BPS` junto.
-- Precisa de **spec escrita do dono** pro item E (fórmula de preço) e pro item D (teto de números por fase) antes de codar.
+- **Estrutura do `Ticket` já mudou na Etapa 3** (`numbers_count` deixou de ser o tamanho exato pra ser o teto) → **tickets antigos da devnet continuam incompatíveis** (mesmo aviso de antes, ambiente de teste, aceito).
+- É o **coração do jogo — diário E mensal.** `count_hits` já está certo (conta a interseção); as Etapas 1-3 resolveram `resolve_tier` + o sorteio + a compra (tamanho). Falta só a Etapa 4 (preço + multi-crypto).
+- Etapa 4 impacta os **BPS de tier** e a economia (cartela grande paga mais e ganha mais) — revisar o `PHASE_CONFIG` e o `TIER_BPS` junto.
+- Precisa de **spec escrita do dono** pra Etapa 4: o valor de `k` (preço-base por combinação) e como o preço escala com o nº de criptos escolhidas, antes de codar.
 
 ---
 
@@ -194,15 +208,15 @@ Nenhum trava produção sozinho; nenhum perde/rouba dinheiro. Retomar caso a cas
 
 ## 5. ESTADO ATUAL — pra retomar
 
-- **Branch:** `feature/monthly-draw-batch-pay` — **em dia com o `origin`** (HEAD `65aa360`, 0 commits à frente). Não mergeada na `main`.
-- **Testes:** `make test` = **66 passing / 0 failing / 1 pending** · `make test-rust` = **11 passing**.
+- **Branch:** `feature/monthly-draw-batch-pay` — **em dia com o `origin`** (HEAD `f1ec991`, 0 commits à frente). Não mergeada na `main`.
+- **Testes:** `make test` = **73 passing / 0 failing / 1 pending** · `make test-rust` = **27 passing**.
 - **Build:** `default = []` (seguro por padrão). `make build-prod` gera o binário de produção verificado. Fluxo em `DEPLOY.md`.
-- **Devnet:** programa no slot `493679424` (2026-09-05), buildado **COM `testing`**, **25 instruções** (a branch tem **27** — faltam `cancel_monthly_draw`, o `pay_winners_batch` admin-gated, e a limpeza do build). `monthly_state`/`monthly_vault` criados, `crypto_count = 10`. Monthly draw #1 completo (smoke test). `last_covered_draw_id = 287` → próximo mensal a partir da draw 288. `monthly_pool ≈ 1.187 USDT` (rollover do smoke test + dinheiro de teste).
+- **Devnet:** programa no slot `493679424` (2026-09-05), buildado **COM `testing`**, **25 instruções** (a branch tem **27** — faltam `cancel_monthly_draw`, o `pay_winners_batch` admin-gated, `set_numbers_count`, e a limpeza do build). `monthly_state`/`monthly_vault` criados, `crypto_count = 10`, `numbers_count` ainda com a semântica antiga (exata, não teto — só passa a valer teto quando esse binário for trocado). Monthly draw #1 completo (smoke test). `last_covered_draw_id = 287` → próximo mensal a partir da draw 288. `monthly_pool ≈ 1.187 USDT` (rollover do smoke test + dinheiro de teste).
 - **Rollback do bytecode devnet:** `scripts/rollback/devnet_2026-04-20_slot456737049.so` (sha `38f5679e…`).
 
 ### Próximos passos sugeridos (ordem)
 
-1. 🔴 **A PRÓXIMA SESSÃO COMEÇA AQUI: refazer o scoring do jogo (§3-B).** Pegar a spec escrita do dono (fórmula de preço por tamanho de cartela + teto de números por fase), fazer um PLANO por etapas, e atacar os 5 pontos (A–E) em etapas testadas. É o coração do jogo (diário + mensal).
+1. 🔴 **A PRÓXIMA SESSÃO COMEÇA AQUI: Etapa 4, última da correção do jogo (§3-B).** Pegar a spec escrita do dono pro valor de `k` (preço-base por combinação em `C(n,6) × k`) e pra como o preço escala com o nº de criptos escolhidas, fazer um PLANO por etapas, e implementar preço combinatório + multi-crypto em etapas testadas. Fecha o coração do jogo (diário + mensal).
 2. Decidir merge `feature → main` (e se envia a `main` local).
 3. `make build-prod` + upgrade da devnet pro binário de produção (sem `testing`) — sabendo que aí o fluxo via keypair-lixo para; precisa dos scripts de Switchboard real. **Fazer depois do item 1**, pra não deployar duas vezes.
 4. Decidir sobre M-2/M-3 (fairness de mensal multi-fase / primeira mensal) — provavelmente resolvidos "de graça" pela mudança do §3-B (sorteio sempre 6).
@@ -216,8 +230,8 @@ Nenhum trava produção sozinho; nenhum perde/rouba dinheiro. Retomar caso a cas
 
 ```bash
 # testes
-make test        # 66 (anchor, com --features testing)
-make test-rust   # 11 (cargo --lib)
+make test        # 73 (anchor, com --features testing)
+make test-rust   # 27 (cargo --lib)
 
 # build de produção (sem testing) + verificação
 make build-prod
@@ -237,6 +251,10 @@ solana program deploy scripts/rollback/devnet_2026-04-20_slot456737049.so \
 ## Commits da branch (todos no `origin`)
 
 ```
+f1ec991 feat(ticket): cartela de tamanho variável, 6 a 25 números (Etapa 3)
+5f7c759 feat(draw): sorteio sempre tira 6 números, qualquer fase (Etapa 2)
+9f46b13 fix(scoring): tier pelo tamanho do sorteio, não da cartela (Etapa 1)
+86224d2 docs: checkpoint 2026-09-08 — M-1 resolvido + decisão de refazer o scoring do jogo
 65aa360 fix(security): pay_winners_batch admin-gated (M-1)
 253ac48 feat(monthly): cancel_monthly_draw — escape hatch de emergência (A-1)
 62d2a3c build: default sem feature testing — produção segura por padrão
