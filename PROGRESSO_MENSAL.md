@@ -3,14 +3,11 @@
 > Checkpoint atualizado em **2026-09-10**.
 > Branch de trabalho: `feature/monthly-draw-batch-pay` (no GitHub, **não** mergeada na `main`).
 >
-> ⚠️ **A PRÓXIMA SESSÃO COMEÇA PELA ETAPA 4 (última da correção do jogo) — ver §3-C
-> pra spec COMPLETA (definida com o dono em 2026-09-10).** Etapas 1, 2 e 3 já estão
-> feitas e testadas (73 verdes). A Etapa 4 muda o conceito: cartela grande vira um
-> CONJUNTO de apostas de "6 números + 1 crypto" (preço e prêmio somam por
-> combinação, igual Mega-Sena) — **é a mudança mais estrutural do projeto** (mexe
-> em como o prêmio é calculado = dinheiro real) e tem uma questão de ESCALA em
-> aberto (`C(25,6)` = 177.100 combinações) que precisa de decisão de arquitetura
-> antes de codar. Spec definida, implementação NÃO começou.
+> ⚠️ **A PRÓXIMA SESSÃO COMEÇA PELA SUB-ETAPA 4a (ver §3-D pro plano completo).**
+> Etapas 1, 2 e 3 já estão feitas e testadas (73 verdes). Spec da Etapa 4 definida
+> em §3-C, bloqueador de escala RESOLVIDO (fórmula combinatória fechada, §3-D) e
+> plano de sub-etapas (4a-4f) aprovado em 2026-09-12. Implementação da Etapa 4
+> ainda não começou — `4a` é a próxima a ser codada e testada.
 
 ---
 
@@ -41,7 +38,7 @@
   - Nova instrução `set_numbers_count` (mirror de `set_crypto_count`, admin-gated, valida 6..=25).
   - Testes: unitários da validação (6/7/8/10/25 aceitos, 5/11/fora-de-range/duplicata rejeitados) + integração (`tests/set_numbers_count.ts`: compra por tamanho, admin-gating) + **bônus E2E fechando o loop com a Etapa 1**: cartela de 8 cobrindo os 6 sorteados + crypto certa vence o jackpot (tier 0) de verdade via `settle_tickets` on-chain.
   - `make test`: 66 → **73 passing** / 0 failing / 1 pending. `make test-rust`: 21 → **27 passing**.
-- [ ] **Etapa 4 (próxima, última desta correção)** — **spec definida em 2026-09-10, implementação PENDENTE** (grande, precisa resolver escala primeiro — ver §3-C): cartela vira conjunto de apostas "6 números + 1 crypto" (preço e prêmio somam por combinação C(n,6)×k), não mais 1 tier por cartela.
+- [ ] **Etapa 4 (próxima, última desta correção)** — spec definida (§3-C), escala resolvida (fórmula combinatória fechada) e plano de 6 sub-etapas aprovado (§3-D) em 2026-09-12. **Implementação PENDENTE**, começando por `4a` (função matemática pura).
 
 ### Build seguro por padrão ✅ (era o item 1 das pendências — RESOLVIDO em 2026-09-07)
 
@@ -202,10 +199,72 @@ Isso é uma mudança de modelo em relação ao que está implementado hoje (Etap
 
 ### RISCOS / PENDÊNCIAS A RESOLVER NA IMPLEMENTAÇÃO
 
-- 🔴 **ESCALA (bloqueador, decisão de arquitetura pendente):** `C(25, 6) = 177.100` combinações. Avaliar todas ON-CHAIN (uma cartela no teto da fase 10) pode estourar o limite de compute da Solana por transação. Precisa de uma solução — por exemplo calcular off-chain e provar/verificar on-chain, processar em lotes ao longo de várias transações, ou limitar o tamanho máximo de cartela a algo que caiba no compute budget. **Isso precisa ser decidido ANTES de começar a codar** — é o primeiro passo da Etapa 4, não um detalhe de implementação.
+- ✅ **ESCALA RESOLVIDA (2026-09-12)** — `C(25, 6) = 177.100` combinações não precisam ser enumeradas: existe uma **fórmula combinatória fechada** que calcula a distribuição por tier em no máximo 7 passos, qualquer que seja o tamanho da cartela. Decisão de arquitetura (Opção 3 de 4 analisadas) aprovada — **ver §3-D pro plano de sub-etapas e a matemática completa**.
 - **Muda a estrutura do `Ticket`** — `crypto: u8` (valor único) vira uma lista de cryptos escolhidas. Isso quebra a compatibilidade com tickets antigos da devnet (aceitável — é ambiente de teste, mesmo padrão dos upgrades anteriores).
 - **É a mudança mais estrutural do projeto até agora** — mexe diretamente em como o prêmio é calculado, ou seja, em dinheiro real. Fazer em **sub-etapas testadas**, com um plano detalhado por sub-etapa (nos moldes das Etapas 1-3), não de uma vez só.
 - **O preço em BYT$ depende do projeto BYT$ (token + venda), que é um projeto separado.** Por ora, o preço pode continuar sendo cobrado no token/mint atual (USDT de teste), só que com o **valor correto** da fórmula (`C(n,6) × k × base`), em vez de um `ticket_price` fixo — a conversão pra BYT$ de verdade vem depois, quando o token existir.
+
+---
+
+## 3-D. ETAPA 4 — PLANO DE SUB-ETAPAS (aprovado em 2026-09-12)
+
+**Decisão de arquitetura pra escala: Opção 3 — fórmula combinatória fechada, APROVADA.** Das 4 opções analisadas nesta sessão (cálculo off-chain + verificação on-chain; limitar o tamanho máximo da cartela; fórmula combinatória fechada; expandir a cartela em `C(n,6)×k` tickets simples já na compra), só a fórmula fechada resolve o problema **sem** cortar o tamanho máximo de cartela (25 números, prometido no `BYTI-EMISSION-PLAN.md`) e **sem** abrir superfície de fraude nova (as outras exigiriam confiar num cálculo externo ou explodir custo de rent/transação).
+
+### A matemática (registrada aqui pra não perder o raciocínio)
+
+O sorteio sempre tira 6 números. Uma cartela de `n` números, pela regra nova, vale `C(n,6)` apostas simples de "6 números" escondidas dentro dela (e `× k` contando as `k` cryptos escolhidas — ver adiante).
+
+Depois do sorteio, separe os `n` números da cartela em dois grupos:
+- **grupo premiado**: os `m` números da cartela que também saíram no sorteio (`m = count_hits`, sempre entre 0 e 6, **não importa o tamanho da cartela**)
+- **grupo não-premiado**: os `n - m` números da cartela que não saíram
+
+Uma aposta simples de 6 números tem `j` números do grupo premiado e `6-j` do grupo não-premiado. A quantidade de apostas com exatamente `j` premiados é:
+
+```
+C(m, j) × C(n-m, 6-j)
+```
+
+(escolher `j` dentre os `m` premiados **e** escolher os `6-j` restantes dentre os `n-m` não-premiados — escolhas independentes, então multiplica). Somando isso pra `j = 0..6` dá exatamente `C(n,6)` (identidade de Vandermonde) — **nunca precisa listar uma aposta**.
+
+**Exemplo concreto:** cartela de 7 números, sorteio acerta 5 (`n=7, m=5` → grupo premiado=5, grupo não-premiado=2):
+
+| j (acertos por aposta) | conta | apostas |
+|---|---|---|
+| 5 | `C(5,5) × C(2,1) = 1 × 2` | 2 |
+| 4 | `C(5,4) × C(2,2) = 5 × 1` | 5 |
+| outros | grupo não-premiado (2) não tem gente suficiente | 0 |
+
+Soma: 2+5 = 7 = `C(7,6)` ✓.
+
+Cada uma dessas apostas de números ainda se cruza com as `k` cryptos escolhidas: se a crypto sorteada está entre as `k`, **exatamente 1** das `k` acerta (tier par) e as outras `k-1` erram (tier ímpar); se não está, todas as `k` erram (tier ímpar). Isso evita ter que iterar as `k` cryptos uma a uma também — o cálculo inteiro fica em **no máximo 7 iterações**, para qualquer `n` (até 25) e qualquer `k`.
+
+### Sub-etapas
+
+| # | O que faz | Arquivos | Testável isolada | Quebra devnet | Depende de |
+|---|---|---|---|---|---|
+| **4a** | Função pura `tier_distribution(m, n, k, crypto_win, drawn_count) -> [u64; 10]` — a matemática acima — mais o helper `binomial(n, k)`. **Ainda não conectada em nenhuma instrução.** | `scoring.rs` | Sim, 100% (`cargo test --lib`, sem validator/conta nenhuma) | Não | — |
+| **4b** | **Ticket muda de estrutura**: `crypto: u8` vira lista (`crypto_choices: Vec<u8>`, nome a confirmar). Nova validação (`validate_cryptos`, mirror de `validate_numbers`), novo teto de cryptos por cartela (`max_crypto_picks` + instrução `set_max_crypto_picks`, mirror de `set_numbers_count` — **nome/campo a confirmar**, distinto de `crypto_count` que continua sendo o pool de IDs 1..10). `settle_tickets`/`settle_monthly_tickets` trocam a comparação `==` por `.contains()` — ainda 1 tier por ticket, a multiplicidade só entra em `4d`. | `state.rs`, `validation.rs`, `buy_ticket.rs`, `buy_ticket_with_referral.rs`, `claim_bonus_ticket.rs`, `settle_tickets.rs`, `settle_monthly_tickets.rs` | Sim (compra + settle continuam testáveis ponta a ponta) | **Sim** (layout do `Ticket` muda) | — |
+| **4c** | Preço passa de `ticket_price` fixo pra `C(n,6) × k × base`. | `buy_ticket.rs`, `buy_ticket_with_referral.rs`, `state.rs` (campo de preço-base) | Sim | Não adicional | 4a, 4b |
+| **4d** ⚠️ | Settle troca `resolve_tier` (1 tier) por `tier_distribution` (até 7 tiers). `winner_counts[tier]` passa a acumular **contagem de combinações**, não mais "+1 por ticket". `finalize_payouts`/`payouts.rs` **não mudam** (só consomem `winner_counts`, agnósticos ao que ele conta). | `settle_tickets.rs`, `settle_monthly_tickets.rs` | Sim — prova de conservação: soma dos `winner_counts` de todos os tickets de uma draw bate com `Σ C(n,6)×k` de cada um | Não adicional | 4a, 4b |
+| **4e** ⚠️⚠️ | Pagamento soma `Σ count(tier) × prize_per_tier[tier]` por ticket. **Anti-migalha (mínimo $1) aplicado ao TOTAL somado do ticket** (aprovado 2026-09-12) — soma tudo primeiro, só depois checa o mínimo; a anti-esmola por TIER que já existe no finalize continua existindo, é uma camada diferente (decide se o tier inteiro paga algo, não se o ticket individual recebe). | `pay_winners_batch.rs`, `pay_monthly_winners_batch.rs` | Sim, com bateria pesada: conservação exata, idempotência, casos de borda perto de $1 | Não adicional | 4d |
+| **4f** (opcional, depois) | Revisar `TIER_BPS`/`PHASE_CONFIG` — cartela grande agora ganha várias combinações de tier baixo ao mesmo tempo, pode precisar reequilibrar os BPS pra manter o jackpot proporcionalmente relevante. Decisão de produto/tokenomics, não bloqueia o resto. | `close_draw.rs`, `constants.rs` | — | — | 4e |
+
+**Ordem/dependências:** `4a` e `4b` são independentes entre si (podem trocar de ordem), mas as duas vêm antes do resto. `4c` precisa das duas. `4d` precisa só de `4a`+`4b` (não de `4c` — preço e settle são independentes). `4e` precisa de `4d` já correto e testado. `4f` é opcional, decisão de produto, vem por último.
+
+```
+4a ──┐
+     ├──► 4c
+4b ──┘
+     └──► 4d ──► 4e ──► 4f (opcional)
+```
+
+**Onde o `Ticket` muda de estrutura:** sub-etapa **4b** (`crypto: u8` → `crypto_choices: Vec<u8>`). Mesmo padrão de quebra de compatibilidade com tickets antigos da devnet já aceito nas Etapas 1-3 (ambiente de teste).
+
+**Sub-etapas mais delicadas:** **4d e 4e** mexem diretamente em como o prêmio é calculado (dinheiro real). **4e é a mais crítica de todas** — é o único lugar de toda a Etapa 4 onde token efetivamente sai da vault.
+
+**Cadência:** cada sub-etapa segue plano → código → teste → commit, uma de cada vez, com parada pra conferência antes de seguir pra próxima (mesmo ritmo das Etapas 1-3).
+
+**Status:** plano aprovado, implementação ainda não começou. `4a` é a próxima a ser codada nesta sessão. `4b`–`4f` pendentes, aguardando aprovação sub-etapa a sub-etapa.
 
 ---
 
@@ -261,7 +320,7 @@ Nenhum trava produção sozinho; nenhum perde/rouba dinheiro. Retomar caso a cas
 
 ### Próximos passos sugeridos (ordem)
 
-1. 🔴 **A PRÓXIMA SESSÃO COMEÇA AQUI: Etapa 4, última da correção do jogo — spec já definida, ver §3-C.** Primeiro passo: **decidir a arquitetura pra ESCALA** (C(25,6) = 177.100 combinações — inviável avaliar tudo on-chain numa tx só). Só depois disso fazer o PLANO por sub-etapas e implementar preço combinatório + vitória por combinação + multi-crypto, testado em cada sub-etapa. Fecha o coração do jogo (diário + mensal).
+1. 🔴 **A PRÓXIMA SESSÃO COMEÇA AQUI: Etapa 4, sub-etapa 4a — ver §3-D pro plano completo.** Spec definida (§3-C), escala resolvida e plano de 6 sub-etapas aprovado (§3-D) em 2026-09-12. Seguir a ordem: `4a` (matemática pura) → `4b` (Ticket multi-crypto) → `4c` (preço) → `4d` (settle com multiplicidade) → `4e` (pagamento) → `4f` opcional (revisão de tokenomics), cada uma com plano→código→teste→commit e parada pra conferência. Fecha o coração do jogo (diário + mensal).
 2. Decidir merge `feature → main` (e se envia a `main` local).
 3. `make build-prod` + upgrade da devnet pro binário de produção (sem `testing`) — sabendo que aí o fluxo via keypair-lixo para; precisa dos scripts de Switchboard real. **Fazer depois do item 1**, pra não deployar duas vezes.
 4. Decidir sobre M-2/M-3 (fairness de mensal multi-fase / primeira mensal) — provavelmente resolvidos "de graça" pela mudança do §3-B (sorteio sempre 6).
