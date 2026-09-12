@@ -3,11 +3,13 @@
 > Checkpoint atualizado em **2026-09-10**.
 > Branch de trabalho: `feature/monthly-draw-batch-pay` (no GitHub, **não** mergeada na `main`).
 >
-> ⚠️ **A PRÓXIMA SESSÃO COMEÇA PELA SUB-ETAPA 4a (ver §3-D pro plano completo).**
+> ⚠️ **A PRÓXIMA SESSÃO COMEÇA PELA SUB-ETAPA 4b (ver §3-D pro plano completo).**
 > Etapas 1, 2 e 3 já estão feitas e testadas (73 verdes). Spec da Etapa 4 definida
 > em §3-C, bloqueador de escala RESOLVIDO (fórmula combinatória fechada, §3-D) e
-> plano de sub-etapas (4a-4f) aprovado em 2026-09-12. Implementação da Etapa 4
-> ainda não começou — `4a` é a próxima a ser codada e testada.
+> plano de sub-etapas (4a-4f) aprovado em 2026-09-12. **`4a` (função matemática
+> pura `tier_distribution`) feita e testada** (36 testes Rust, era 27) — ainda
+> não conectada em nenhuma instrução. Falta `4b` (Ticket.crypto vira lista) em
+> diante.
 
 ---
 
@@ -38,7 +40,7 @@
   - Nova instrução `set_numbers_count` (mirror de `set_crypto_count`, admin-gated, valida 6..=25).
   - Testes: unitários da validação (6/7/8/10/25 aceitos, 5/11/fora-de-range/duplicata rejeitados) + integração (`tests/set_numbers_count.ts`: compra por tamanho, admin-gating) + **bônus E2E fechando o loop com a Etapa 1**: cartela de 8 cobrindo os 6 sorteados + crypto certa vence o jackpot (tier 0) de verdade via `settle_tickets` on-chain.
   - `make test`: 66 → **73 passing** / 0 failing / 1 pending. `make test-rust`: 21 → **27 passing**.
-- [ ] **Etapa 4 (próxima, última desta correção)** — spec definida (§3-C), escala resolvida (fórmula combinatória fechada) e plano de 6 sub-etapas aprovado (§3-D) em 2026-09-12. **Implementação PENDENTE**, começando por `4a` (função matemática pura).
+- [ ] **Etapa 4 (próxima, última desta correção)** — spec definida (§3-C), escala resolvida (fórmula combinatória fechada) e plano de 6 sub-etapas aprovado (§3-D) em 2026-09-12. **`4a` feita** (função matemática pura `tier_distribution`, isolada, 9 testes) — `4b`–`4f` **PENDENTES**.
 
 ### Build seguro por padrão ✅ (era o item 1 das pendências — RESOLVIDO em 2026-09-07)
 
@@ -264,7 +266,7 @@ Cada uma dessas apostas de números ainda se cruza com as `k` cryptos escolhidas
 
 **Cadência:** cada sub-etapa segue plano → código → teste → commit, uma de cada vez, com parada pra conferência antes de seguir pra próxima (mesmo ritmo das Etapas 1-3).
 
-**Status:** plano aprovado, implementação ainda não começou. `4a` é a próxima a ser codada nesta sessão. `4b`–`4f` pendentes, aguardando aprovação sub-etapa a sub-etapa.
+**Status:** `4a` **feita e testada** nesta sessão — `tier_distribution(m, n, k, crypto_win, drawn_count) -> [u64; 10]` + `binomial(n, k)` em `scoring.rs`, ainda **não conectada** em nenhuma instrução (código puro, sem efeito no comportamento on-chain hoje). Testes: casos concretos (cartela de 7 acertando 5; cartela de 8 do bônus E2E da Etapa 3; multi-crypto k=3; colapso pro modelo antigo quando n=6/k=1), prova de conservação por força bruta (n=6..12, compara com enumeração literal de combinações) e prova de conservação geral (`soma = C(n,6)×k`, n=6..25, k∈{1,2,5,10}). `make test-rust`: 27 → **36 passing**. `make test` (suíte completa, incluindo integração): segue **73 passing / 0 failing / 1 pending** — inalterado, como esperado (4a é código isolado, não mexe em nenhuma instrução ainda). `4b`–`4f` pendentes, aguardando aprovação sub-etapa a sub-etapa.
 
 ---
 
@@ -313,14 +315,14 @@ Nenhum trava produção sozinho; nenhum perde/rouba dinheiro. Retomar caso a cas
 ## 5. ESTADO ATUAL — pra retomar
 
 - **Branch:** `feature/monthly-draw-batch-pay` — **em dia com o `origin`** (HEAD `f1ec991`, 0 commits à frente). Não mergeada na `main`.
-- **Testes:** `make test` = **73 passing / 0 failing / 1 pending** · `make test-rust` = **27 passing**.
+- **Testes:** `make test` = **73 passing / 0 failing / 1 pending** · `make test-rust` = **36 passing** (era 27 — os 9 novos são da sub-etapa 4a, código puro ainda não conectado em instrução nenhuma).
 - **Build:** `default = []` (seguro por padrão). `make build-prod` gera o binário de produção verificado. Fluxo em `DEPLOY.md`.
 - **Devnet:** programa no slot `493679424` (2026-09-05), buildado **COM `testing`**, **25 instruções** (a branch tem **27** — faltam `cancel_monthly_draw`, o `pay_winners_batch` admin-gated, `set_numbers_count`, e a limpeza do build). `monthly_state`/`monthly_vault` criados, `crypto_count = 10`, `numbers_count` ainda com a semântica antiga (exata, não teto — só passa a valer teto quando esse binário for trocado). Monthly draw #1 completo (smoke test). `last_covered_draw_id = 287` → próximo mensal a partir da draw 288. `monthly_pool ≈ 1.187 USDT` (rollover do smoke test + dinheiro de teste).
 - **Rollback do bytecode devnet:** `scripts/rollback/devnet_2026-04-20_slot456737049.so` (sha `38f5679e…`).
 
 ### Próximos passos sugeridos (ordem)
 
-1. 🔴 **A PRÓXIMA SESSÃO COMEÇA AQUI: Etapa 4, sub-etapa 4a — ver §3-D pro plano completo.** Spec definida (§3-C), escala resolvida e plano de 6 sub-etapas aprovado (§3-D) em 2026-09-12. Seguir a ordem: `4a` (matemática pura) → `4b` (Ticket multi-crypto) → `4c` (preço) → `4d` (settle com multiplicidade) → `4e` (pagamento) → `4f` opcional (revisão de tokenomics), cada uma com plano→código→teste→commit e parada pra conferência. Fecha o coração do jogo (diário + mensal).
+1. 🔴 **A PRÓXIMA SESSÃO COMEÇA AQUI: Etapa 4, sub-etapa 4b — ver §3-D pro plano completo.** Spec definida (§3-C), escala resolvida e plano de 6 sub-etapas aprovado (§3-D) em 2026-09-12. `4a` (matemática pura, `tier_distribution`) já feita e testada. Seguir a ordem: `4b` (Ticket.crypto vira lista) → `4c` (preço) → `4d` (settle com multiplicidade) → `4e` (pagamento) → `4f` opcional (revisão de tokenomics), cada uma com plano→código→teste→commit e parada pra conferência. Fecha o coração do jogo (diário + mensal).
 2. Decidir merge `feature → main` (e se envia a `main` local).
 3. `make build-prod` + upgrade da devnet pro binário de produção (sem `testing`) — sabendo que aí o fluxo via keypair-lixo para; precisa dos scripts de Switchboard real. **Fazer depois do item 1**, pra não deployar duas vezes.
 4. Decidir sobre M-2/M-3 (fairness de mensal multi-fase / primeira mensal) — provavelmente resolvidos "de graça" pela mudança do §3-B (sorteio sempre 6).
@@ -335,7 +337,7 @@ Nenhum trava produção sozinho; nenhum perde/rouba dinheiro. Retomar caso a cas
 ```bash
 # testes
 make test        # 73 (anchor, com --features testing)
-make test-rust   # 27 (cargo --lib)
+make test-rust   # 36 (cargo --lib)
 
 # build de produção (sem testing) + verificação
 make build-prod
