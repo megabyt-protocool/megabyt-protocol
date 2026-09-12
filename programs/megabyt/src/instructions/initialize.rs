@@ -37,6 +37,11 @@ pub fn handler(
     // Todas as 10 criptos disponiveis desde a fase 1 — nao e' mais
     // controlado por advance_phase (ver ALL_CRYPTOS_COUNT em constants.rs).
     global.crypto_count = ALL_CRYPTOS_COUNT;
+    // Etapa 4 (sub-etapa 4b): comeca em 1 (so' 1 crypto por cartela, igual
+    // hoje) — o jogador ja escolhe livremente entre as 10 (crypto_count),
+    // so' nao pode escolher mais de 1 AINDA. Usar set_max_crypto_picks pra
+    // destravar mais conforme a fase.
+    global.max_crypto_picks = 1;
 
     global.prize_vault = Pubkey::default();
     global.treasury_vault = Pubkey::default();

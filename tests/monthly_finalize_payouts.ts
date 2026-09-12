@@ -323,7 +323,7 @@ describe("monthly_finalize_payouts + pay_monthly_winners_batch — Sub-etapas 3D
     for (let i = 0; i < count; i++) {
       const ticketPda = getTicketPDA(drawPda, kp.publicKey, i);
       await withRetry(() => (program.methods
-        .buyTicket(Buffer.from(numbers), crypto)
+        .buyTicket(Buffer.from(numbers), Buffer.from([crypto]))
         .accounts as any)({
           user: kp.publicKey,
           globalState,

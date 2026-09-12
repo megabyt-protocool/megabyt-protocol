@@ -3,10 +3,10 @@ use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
 use crate::error::MegabytError;
 use crate::state::{Draw, GlobalState, Ticket, UserDrawState, UserGlobalState, UserState};
-use crate::validation::{validate_numbers, validate_crypto};
+use crate::validation::{validate_numbers, validate_cryptos};
 
 #[derive(Accounts)]
-#[instruction(numbers: Vec<u8>, crypto: u8)]
+#[instruction(numbers: Vec<u8>, cryptos: Vec<u8>)]
 pub struct BuyTicketWithReferral<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
@@ -101,7 +101,7 @@ pub struct BuyTicketWithReferral<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler(ctx: Context<BuyTicketWithReferral>, numbers: Vec<u8>, crypto: u8) -> Result<()> {
+pub fn handler(ctx: Context<BuyTicketWithReferral>, numbers: Vec<u8>, cryptos: Vec<u8>) -> Result<()> {
     let user = &ctx.accounts.user;
     let global_state = &mut ctx.accounts.global_state;
     let draw_state = &mut ctx.accounts.draw_state;
@@ -118,7 +118,7 @@ pub fn handler(ctx: Context<BuyTicketWithReferral>, numbers: Vec<u8>, crypto: u8
     require!(clock.unix_timestamp <= draw_state.end_time, MegabytError::DrawStillOpen);
 
     validate_numbers(&numbers, global_state.numbers_count)?;
-    validate_crypto(crypto, global_state.crypto_count)?;
+    validate_cryptos(&cryptos, global_state.crypto_count, global_state.max_crypto_picks)?;
 
     require!(
         ctx.accounts.user_token_account.amount >= global_state.ticket_price,
@@ -238,8 +238,7 @@ pub fn handler(ctx: Context<BuyTicketWithReferral>, numbers: Vec<u8>, crypto: u8
     ticket.draw = draw_state.key();
     ticket.draw_id = draw_state.id;
     ticket.numbers = numbers;
-    ticket.crypto = crypto;
-    ticket.crypto_number = crypto;
+    ticket.cryptos = cryptos;
     ticket.claimed = false;
     ticket.settled = false;
     ticket.paid = false;

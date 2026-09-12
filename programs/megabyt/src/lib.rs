@@ -72,17 +72,17 @@ pub mod megabyt {
     pub fn buy_ticket(
         ctx: Context<BuyTicket>,
         numbers: Vec<u8>,
-        crypto: u8,
+        cryptos: Vec<u8>,
     ) -> Result<()> {
-        instructions::buy_ticket::handler(ctx, numbers, crypto)
+        instructions::buy_ticket::handler(ctx, numbers, cryptos)
     }
 
     pub fn buy_ticket_with_referral(
         ctx: Context<BuyTicketWithReferral>,
         numbers: Vec<u8>,
-        crypto: u8,
+        cryptos: Vec<u8>,
     ) -> Result<()> {
-        instructions::buy_ticket_with_referral::handler(ctx, numbers, crypto)
+        instructions::buy_ticket_with_referral::handler(ctx, numbers, cryptos)
     }
 
     pub fn request_randomness(ctx: Context<RequestRandomness>) -> Result<()> {
@@ -152,6 +152,10 @@ pub mod megabyt {
         instructions::set_numbers_count::handler(ctx, numbers_count)
     }
 
+    pub fn set_max_crypto_picks(ctx: Context<SetMaxCryptoPicks>, max_crypto_picks: u8) -> Result<()> {
+        instructions::set_max_crypto_picks::handler(ctx, max_crypto_picks)
+    }
+
     pub fn set_referrer(ctx: Context<SetReferrer>) -> Result<()> {
         instructions::set_referrer::handler(ctx)
     }
@@ -159,9 +163,9 @@ pub mod megabyt {
     pub fn claim_bonus_ticket(
         ctx: Context<ClaimBonusTicket>,
         numbers: Vec<u8>,
-        crypto: u8,
+        cryptos: Vec<u8>,
     ) -> Result<()> {
-        instructions::claim_bonus_ticket::handler(ctx, numbers, crypto)
+        instructions::claim_bonus_ticket::handler(ctx, numbers, cryptos)
     }
 
     pub fn advance_phase(ctx: Context<AdvancePhase>) -> Result<()> {

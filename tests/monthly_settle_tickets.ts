@@ -219,7 +219,7 @@ describe("monthly_settle_tickets — Sub-etapa 3C (repontuação em lote)", () =
     const userGlobalStateAcc = getUserGlobalStatePDA(kp.publicKey);
 
     await (program.methods
-      .buyTicket(Buffer.from(numbers), 1)
+      .buyTicket(Buffer.from(numbers), Buffer.from([1]))
       .accounts as any)({
         user: kp.publicKey,
         globalState,

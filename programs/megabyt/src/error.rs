@@ -56,6 +56,12 @@ pub enum MegabytError {
     #[msg("Invalid crypto number")]
     InvalidCryptoNumber,
 
+    #[msg("Invalid crypto count for cartela (empty or above the per-ticket cap)")]
+    InvalidCryptoCount,
+
+    #[msg("Duplicate crypto choice")]
+    DuplicateCrypto,
+
     #[msg("Invalid ticket")]
     InvalidTicket,
 

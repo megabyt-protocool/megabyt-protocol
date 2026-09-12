@@ -155,7 +155,7 @@ describe("open_monthly_draw — Sub-etapa 3A (só abertura)", () => {
     const numbers = Array.from({ length: numbersCount }, (_, i) => i + 1);
 
     await (program.methods
-      .buyTicket(Buffer.from(numbers), 1)
+      .buyTicket(Buffer.from(numbers), Buffer.from([1]))
       .accounts as any)({
         user: kp.publicKey,
         globalState,

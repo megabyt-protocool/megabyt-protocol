@@ -198,7 +198,7 @@ describe("crypto_count e sistema de fases", () => {
     const userGlobalStateAcc = getUserGlobalStatePDA(kp.publicKey);
 
     await (program.methods
-      .buyTicket(Buffer.from(numbers), crypto)
+      .buyTicket(Buffer.from(numbers), Buffer.from([crypto]))
       .accounts as any)({
         user: kp.publicKey,
         globalState,
@@ -283,8 +283,7 @@ describe("crypto_count e sistema de fases", () => {
     for (let crypto = 1; crypto <= 10; crypto++) {
       const { ticketPda } = await buyTicket(draw.pda, numbers, crypto);
       const ticket: any = await program.account.ticket.fetch(ticketPda);
-      expect(Number(ticket.crypto)).to.equal(crypto);
-      expect(Number(ticket.cryptoNumber)).to.equal(crypto);
+      expect(Array.from(ticket.cryptos as Iterable<number>, (n: number) => Number(n))).to.deep.equal([crypto]);
     }
 
     const drawAccount: any = await program.account.draw.fetch(draw.pda);
@@ -426,7 +425,7 @@ describe("crypto_count e sistema de fases", () => {
       for (let attempt = 1; ; attempt++) {
         try {
           await (program.methods
-            .buyTicket(Buffer.from(numbers), 1)
+            .buyTicket(Buffer.from(numbers), Buffer.from([1]))
             .accounts as any)({
               user: kp.publicKey,
               globalState,

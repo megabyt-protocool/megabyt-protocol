@@ -245,7 +245,7 @@ describe("pay_winners_batch — pagamento em lote via remaining_accounts", () =>
     const dummyNumbers = Array.from({ length: numbersCount }, (_, i) => i + 1);
 
     await (program.methods
-      .buyTicket(Buffer.from(dummyNumbers), 1)
+      .buyTicket(Buffer.from(dummyNumbers), Buffer.from([1]))
       .accounts as any)({
         user: dummyUser.publicKey,
         globalState,
@@ -335,7 +335,7 @@ describe("pay_winners_batch — pagamento em lote via remaining_accounts", () =>
       const userGlobalStateAcc = getUserGlobalStatePDA(kp.publicKey);
 
       await (program.methods
-        .buyTicket(Buffer.from(numbers), 1)
+        .buyTicket(Buffer.from(numbers), Buffer.from([1]))
         .accounts as any)({
           user: kp.publicKey,
           globalState,
@@ -366,7 +366,7 @@ describe("pay_winners_batch — pagamento em lote via remaining_accounts", () =>
       const ticketPda = getTicketPDA(testDrawPda, fillerKp.publicKey, i);
 
       await (program.methods
-        .buyTicket(Buffer.from(fillerNumbers), 1)
+        .buyTicket(Buffer.from(fillerNumbers), Buffer.from([1]))
         .accounts as any)({
           user: fillerKp.publicKey,
           globalState,

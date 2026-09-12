@@ -54,8 +54,9 @@ pub fn handler<'info>(
         }
 
         let hits = count_hits(&ticket.numbers, &draw.result_numbers);
-        let crypto_hit =
-            ticket.crypto == draw.result_crypto || ticket.crypto_number == draw.result_crypto;
+        // Etapa 4 (sub-etapa 4b): acerta a crypto se QUALQUER uma das
+        // escolhidas bater com a sorteada (antes era igualdade com 1 so' valor).
+        let crypto_hit = ticket.cryptos.contains(&draw.result_crypto);
 
         // Classificacao pelo tamanho do SORTEIO (result_numbers), nunca
         // pelo tamanho da cartela. Ver scoring::resolve_tier. Hoje

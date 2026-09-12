@@ -157,7 +157,7 @@ describe("megabyt", () => {
     const userGlobalState = getUserGlobalStatePDA(user.publicKey);
 
     await (program.methods
-      .buyTicket(Buffer.from([1, 2, 3, 4, 5, 6]), 1)
+      .buyTicket(Buffer.from([1, 2, 3, 4, 5, 6]), Buffer.from([1]))
       .accounts as any)({
         user: user.publicKey,
         globalState,

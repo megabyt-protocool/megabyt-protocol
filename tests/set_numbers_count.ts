@@ -136,7 +136,7 @@ describe("numbers_count e cartela de tamanho variável (Etapa 3)", () => {
     const userGlobalStateAcc = getUserGlobalStatePDA(kp.publicKey);
 
     await (program.methods
-      .buyTicket(Buffer.from(numbers), crypto)
+      .buyTicket(Buffer.from(numbers), Buffer.from([crypto]))
       .accounts as any)({
         user: kp.publicKey,
         globalState,

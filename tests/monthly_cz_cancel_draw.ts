@@ -99,7 +99,7 @@ describe("cancel_monthly_draw — escape hatch (A-1)", () => {
     const out: TicketRef[] = [];
     for (let i = 0; i < count; i++) {
       const ticketPda = getTicketPDA(drawPda, kp.publicKey, i);
-      await withRetry(() => (program.methods.buyTicket(Buffer.from(nums), 1).accounts as any)({
+      await withRetry(() => (program.methods.buyTicket(Buffer.from(nums), Buffer.from([1])).accounts as any)({
         user: kp.publicKey, globalState, drawState: drawPda,
         userDrawState: getUserDrawStatePDA(drawPda, kp.publicKey), userGlobalState: getUserGlobalStatePDA(kp.publicKey),
         ticket: ticketPda, userTokenAccount: ata, prizeVault,

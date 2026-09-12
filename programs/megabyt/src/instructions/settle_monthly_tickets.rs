@@ -147,7 +147,9 @@ pub fn handler<'info>(
         require!(claim_info.lamports() == 0, MegabytError::MonthlyTicketAlreadyClaimed);
 
         let hits = count_hits(&ticket.numbers, &result_numbers);
-        let crypto_hit = ticket.crypto == result_crypto || ticket.crypto_number == result_crypto;
+        // Etapa 4 (sub-etapa 4b): acerta a crypto se QUALQUER uma das
+        // escolhidas bater com a sorteada (antes era igualdade com 1 so' valor).
+        let crypto_hit = ticket.cryptos.contains(&result_crypto);
         // Classificacao pelo tamanho do SORTEIO (result_numbers), nunca
         // pelo tamanho da cartela: cobrir os numeros sorteados = jackpot,
         // tenha a cartela 6 numeros ou 20. Mesma regra do diario

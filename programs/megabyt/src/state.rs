@@ -25,6 +25,11 @@ pub struct GlobalState {
 
     pub numbers_count: u8,
     pub crypto_count: u8,
+    /// Etapa 4 (sub-etapa 4b): teto de QUANTAS cryptos uma cartela pode
+    /// escolher (nao confundir com crypto_count, que e' o pool de IDs
+    /// disponiveis pra escolher DE). Comeca em 1 (comportamento de hoje);
+    /// destrava mais via `set_max_crypto_picks` conforme a fase.
+    pub max_crypto_picks: u8,
 
     pub prize_vault: Pubkey,
     pub treasury_vault: Pubkey,
@@ -63,7 +68,7 @@ impl GlobalState {
         + 32 + 32 + 32
         + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8
         + 8 + 8 + 8 + 8
-        + 1 + 1
+        + 1 + 1 + 1
         + 32 + 32 + 32 + 32 + 32
         + 32 + 32 + 32 + 32 + 32 + 32 + 32 + 32 + 32
         + 8 + 8 + 8 + 8 + 8
@@ -166,8 +171,11 @@ pub struct Ticket {
     pub draw_id: u64,
 
     pub numbers: Vec<u8>,
-    pub crypto: u8,
-    pub crypto_number: u8,
+    /// Etapa 4 (sub-etapa 4b): lista de cryptos escolhidas (1..=10 IDs,
+    /// sem duplicata — ver validation::validate_cryptos). Substitui os
+    /// antigos `crypto`/`crypto_number` (u8 unico, sempre iguais entre
+    /// si — redundancia removida junto com a mudanca).
+    pub cryptos: Vec<u8>,
 
     pub claimed: bool,
     pub settled: bool,
@@ -191,14 +199,20 @@ impl Ticket {
     /// (Anchor `init` nao faz realloc automatico).
     pub const MAX_NUMBERS: usize = 25;
 
+    /// Etapa 4 (sub-etapa 4b): teto absoluto de cryptos por cartela —
+    /// nao da' pra escolher mais IDs distintos do que existem
+    /// (ALL_CRYPTOS_COUNT). O teto REAL por cartela (menor ou igual a
+    /// este) vem de `global_state.max_crypto_picks`; a conta aloca
+    /// sempre o teto absoluto, mesmo padrao do MAX_NUMBERS acima.
+    pub const MAX_CRYPTOS: usize = 10;
+
     pub fn len() -> usize {
         8  // discriminator
         + 32    // owner
         + 32    // draw
         + 8     // draw_id
-        + 4 + Self::MAX_NUMBERS  // Vec<u8>: 4 bytes length + data (sempre aloca o teto)
-        + 1     // crypto
-        + 1     // crypto_number
+        + 4 + Self::MAX_NUMBERS  // numbers: Vec<u8> (4 bytes length + data, sempre aloca o teto)
+        + 4 + Self::MAX_CRYPTOS  // cryptos: Vec<u8> (idem)
         + 1     // claimed
         + 1     // settled
         + 1     // paid

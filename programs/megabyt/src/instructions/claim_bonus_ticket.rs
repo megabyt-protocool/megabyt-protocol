@@ -2,9 +2,9 @@ use anchor_lang::prelude::*;
 
 use crate::error::MegabytError;
 use crate::state::{Draw, GlobalState, Ticket, UserDrawState, UserState};
-use crate::validation::{validate_numbers, validate_crypto};
+use crate::validation::{validate_numbers, validate_cryptos};
 
-pub fn handler(ctx: Context<ClaimBonusTicket>, numbers: Vec<u8>, crypto: u8) -> Result<()> {
+pub fn handler(ctx: Context<ClaimBonusTicket>, numbers: Vec<u8>, cryptos: Vec<u8>) -> Result<()> {
     let user = &ctx.accounts.user;
     let global_state = &mut ctx.accounts.global_state;
     let user_state = &mut ctx.accounts.user_state;
@@ -30,7 +30,7 @@ pub fn handler(ctx: Context<ClaimBonusTicket>, numbers: Vec<u8>, crypto: u8) -> 
 
     // Validate numbers and crypto
     validate_numbers(&numbers, global_state.numbers_count)?;
-    validate_crypto(crypto, global_state.crypto_count)?;
+    validate_cryptos(&cryptos, global_state.crypto_count, global_state.max_crypto_picks)?;
 
     // Supply cap validation: ensure we don't exceed phase limit
     if global_state.total_supply_cap > 0 {
@@ -53,8 +53,7 @@ pub fn handler(ctx: Context<ClaimBonusTicket>, numbers: Vec<u8>, crypto: u8) -> 
     ticket.draw = draw_state.key();
     ticket.draw_id = draw_state.id;
     ticket.numbers = numbers;
-    ticket.crypto = crypto;
-    ticket.crypto_number = crypto;
+    ticket.cryptos = cryptos;
     ticket.claimed = false;
     ticket.settled = false;
     ticket.paid = false;
@@ -100,7 +99,7 @@ pub fn handler(ctx: Context<ClaimBonusTicket>, numbers: Vec<u8>, crypto: u8) -> 
 }
 
 #[derive(Accounts)]
-#[instruction(numbers: Vec<u8>, crypto: u8)]
+#[instruction(numbers: Vec<u8>, cryptos: Vec<u8>)]
 pub struct ClaimBonusTicket<'info> {
     #[account(mut)]
     pub user: Signer<'info>,

@@ -255,8 +255,8 @@
           "type": "bytes"
         },
         {
-          "name": "crypto",
-          "type": "u8"
+          "name": "cryptos",
+          "type": "bytes"
         }
       ]
     },
@@ -529,8 +529,8 @@
           "type": "bytes"
         },
         {
-          "name": "crypto",
-          "type": "u8"
+          "name": "cryptos",
+          "type": "bytes"
         }
       ]
     },
@@ -844,8 +844,8 @@
           "type": "bytes"
         },
         {
-          "name": "crypto",
-          "type": "u8"
+          "name": "cryptos",
+          "type": "bytes"
         }
       ]
     },
@@ -2638,6 +2638,63 @@
       ]
     },
     {
+      "name": "set_max_crypto_picks",
+      "discriminator": [
+        126,
+        183,
+        51,
+        143,
+        11,
+        144,
+        23,
+        77
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101,
+                  45,
+                  118,
+                  51
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "max_crypto_picks",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "set_numbers_count",
       "discriminator": [
         95,
@@ -3199,151 +3256,161 @@
     },
     {
       "code": 6018,
+      "name": "InvalidCryptoCount",
+      "msg": "Invalid crypto count for cartela (empty or above the per-ticket cap)"
+    },
+    {
+      "code": 6019,
+      "name": "DuplicateCrypto",
+      "msg": "Duplicate crypto choice"
+    },
+    {
+      "code": 6020,
       "name": "InvalidTicket",
       "msg": "Invalid ticket"
     },
     {
-      "code": 6019,
+      "code": 6021,
       "name": "TicketNotSettled",
       "msg": "Ticket not settled"
     },
     {
-      "code": 6020,
+      "code": 6022,
       "name": "TicketAlreadySettled",
       "msg": "Ticket already settled"
     },
     {
-      "code": 6021,
+      "code": 6023,
       "name": "TicketAlreadyPaid",
       "msg": "Ticket already paid"
     },
     {
-      "code": 6022,
+      "code": 6024,
       "name": "SettlementNotComplete",
       "msg": "Settlement not complete"
     },
     {
-      "code": 6023,
+      "code": 6025,
       "name": "SettlementAlreadyFinalized",
       "msg": "Settlement already finalized"
     },
     {
-      "code": 6024,
+      "code": 6026,
       "name": "InvalidTokenOwner",
       "msg": "Invalid token owner"
     },
     {
-      "code": 6025,
+      "code": 6027,
       "name": "InvalidMint",
       "msg": "Invalid token mint"
     },
     {
-      "code": 6026,
+      "code": 6028,
       "name": "InvalidVaultAuthority",
       "msg": "Invalid vault authority"
     },
     {
-      "code": 6027,
+      "code": 6029,
       "name": "InvalidPrizeVault",
       "msg": "Invalid prize vault"
     },
     {
-      "code": 6028,
+      "code": 6030,
       "name": "InvalidTier",
       "msg": "Invalid tier"
     },
     {
-      "code": 6029,
+      "code": 6031,
       "name": "RandomnessNotReady",
       "msg": "Randomness not fulfilled yet"
     },
     {
-      "code": 6030,
+      "code": 6032,
       "name": "ReferrerAlreadySet",
       "msg": "Referrer already set"
     },
     {
-      "code": 6031,
+      "code": 6033,
       "name": "InvalidReferrer",
       "msg": "Invalid referrer"
     },
     {
-      "code": 6032,
+      "code": 6034,
       "name": "SelfReferralNotAllowed",
       "msg": "Self-referral not allowed"
     },
     {
-      "code": 6033,
+      "code": 6035,
       "name": "UserStateNotInitialized",
       "msg": "User state not initialized"
     },
     {
-      "code": 6034,
+      "code": 6036,
       "name": "ReferrerStateNotInitialized",
       "msg": "Referrer state not initialized"
     },
     {
-      "code": 6035,
+      "code": 6037,
       "name": "ReferralTokenAccountInvalid",
       "msg": "Referral token account invalid"
     },
     {
-      "code": 6036,
+      "code": 6038,
       "name": "ReferralAlreadyCounted",
       "msg": "Referral already counted for this user"
     },
     {
-      "code": 6037,
+      "code": 6039,
       "name": "NoBonusTicketCredits",
       "msg": "No bonus ticket credits available"
     },
     {
-      "code": 6038,
+      "code": 6040,
       "name": "MaxPhaseReached",
       "msg": "Maximum phase already reached"
     },
     {
-      "code": 6039,
+      "code": 6041,
       "name": "PhaseThresholdNotMet",
       "msg": "Active users threshold not met for next phase"
     },
     {
-      "code": 6040,
+      "code": 6042,
       "name": "SupplyCapExceeded",
       "msg": "Supply cap exceeded for current phase"
     },
     {
-      "code": 6041,
+      "code": 6043,
       "name": "TooManyNumbers",
       "msg": "Too many numbers for current phase"
     },
     {
-      "code": 6042,
+      "code": 6044,
       "name": "TooManyCryptos",
       "msg": "Too many crypto selections for current phase"
     },
     {
-      "code": 6043,
+      "code": 6045,
       "name": "InvalidMonthlyRange",
       "msg": "Invalid monthly draw range (empty, too large, gap, overlap or duplicate)"
     },
     {
-      "code": 6044,
+      "code": 6046,
       "name": "InvalidMonthlyVault",
       "msg": "Invalid monthly vault"
     },
     {
-      "code": 6045,
+      "code": 6047,
       "name": "MonthlyTicketAlreadyClaimed",
       "msg": "Ticket already claimed for this monthly draw"
     },
     {
-      "code": 6046,
+      "code": 6048,
       "name": "MonthlyDrawNotCancelable",
       "msg": "Monthly draw can only be canceled at status 0 (before close_monthly_draw)"
     },
     {
-      "code": 6047,
+      "code": 6049,
       "name": "MonthlyDrawNotLatest",
       "msg": "Only the most recent monthly draw can be canceled"
     }
@@ -3590,6 +3657,16 @@
           },
           {
             "name": "crypto_count",
+            "type": "u8"
+          },
+          {
+            "name": "max_crypto_picks",
+            "docs": [
+              "Etapa 4 (sub-etapa 4b): teto de QUANTAS cryptos uma cartela pode",
+              "escolher (nao confundir com crypto_count, que e' o pool de IDs",
+              "disponiveis pra escolher DE). Comeca em 1 (comportamento de hoje);",
+              "destrava mais via `set_max_crypto_picks` conforme a fase."
+            ],
             "type": "u8"
           },
           {
@@ -3930,12 +4007,14 @@
             "type": "bytes"
           },
           {
-            "name": "crypto",
-            "type": "u8"
-          },
-          {
-            "name": "crypto_number",
-            "type": "u8"
+            "name": "cryptos",
+            "docs": [
+              "Etapa 4 (sub-etapa 4b): lista de cryptos escolhidas (1..=10 IDs,",
+              "sem duplicata — ver validation::validate_cryptos). Substitui os",
+              "antigos `crypto`/`crypto_number` (u8 unico, sempre iguais entre",
+              "si — redundancia removida junto com a mudanca)."
+            ],
+            "type": "bytes"
           },
           {
             "name": "claimed",
