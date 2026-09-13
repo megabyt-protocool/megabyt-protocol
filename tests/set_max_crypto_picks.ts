@@ -140,7 +140,10 @@ describe("cartela multi-crypto (Etapa 4, sub-etapa 4b)", () => {
     numbers: number[],
     cryptos: number[]
   ): Promise<{ kp: Keypair; ticketPda: PublicKey }> {
-    const { kp, ata } = await fundWallet(mint, ticketPrice.toNumber() * 2);
+    // Etapa 4 (sub-etapa 4c): preço agora é C(n,6) × k × base — este
+    // arquivo testa até k=3 cryptos (n fica em numbersCount=6, C(6,6)=1),
+    // então financia com folga acima de 3× em vez do ×2 de antes.
+    const { kp, ata } = await fundWallet(mint, ticketPrice.toNumber() * 5);
     const ticketPda = getTicketPDA(drawPda, kp.publicKey, 0);
     const userDrawState = getUserDrawStatePDA(drawPda, kp.publicKey);
     const userGlobalStateAcc = getUserGlobalStatePDA(kp.publicKey);
@@ -509,7 +512,9 @@ describe("cartela multi-crypto (Etapa 4, sub-etapa 4b)", () => {
         systemProgram: SystemProgram.programId,
       }).signers([referrerKp]).rpc();
 
-    const { kp: userKp, ata: userAta } = await fundWallet(mint, ticketPrice.toNumber() * 2);
+    // 2 cryptos escolhidas nesta compra (ver buyTicketWithReferral abaixo)
+    // -> preço = C(6,6) × 2 × base = 2× base; funda com folga.
+    const { kp: userKp, ata: userAta } = await fundWallet(mint, ticketPrice.toNumber() * 5);
     await (program.methods
       .initUserState()
       .accounts as any)({
@@ -550,7 +555,7 @@ describe("cartela multi-crypto (Etapa 4, sub-etapa 4b)", () => {
     expect(Array.from(ticket.cryptos as Iterable<number>, (n) => Number(n))).to.deep.equal([2, 8]);
   });
 
-  it("claim_bonus_ticket aceita cryptos: Vec<u8> (cobertura nova — não existia antes da 4b)", async () => {
+  it("claim_bonus_ticket aceita cryptos: Vec<u8>, mas trava no tamanho mínimo (Etapa 4c: preço combinatório não se aplica ao bônus)", async () => {
     // Precisa de 2 conversões de referral pra gerar 1 credito de bonus
     // (regra existente: a cada 2 successful_referrals, +1 bonus_ticket_credits).
     const draw = await openDrawOnly();
@@ -607,8 +612,39 @@ describe("cartela multi-crypto (Etapa 4, sub-etapa 4b)", () => {
     expect(referrerState.bonusTicketCredits).to.equal(1, "2 conversões deveriam gerar 1 crédito de bônus");
 
     const bonusTicketPda = getTicketPDA(draw.pda, referrerKp.publicKey, 0);
+
+    // Etapa 4c: preço combinatório NÃO se aplica ao bônus — pra não virar
+    // brecha de "cartela gigante de graça", claim_bonus_ticket trava
+    // sempre em exatamente 6 números + 1 crypto, mesmo que o teto global
+    // (numbersCount/maxCryptoPicks) permita mais. Tentativa com mais de
+    // 1 crypto deveria ser rejeitada SEM consumir o crédito.
+    let threw = false;
+    let errText = "";
+    try {
+      await (program.methods
+        .claimBonusTicket(Buffer.from(numbers), Buffer.from([4, 6]))
+        .accounts as any)({
+          user: referrerKp.publicKey,
+          globalState,
+          userState: getUserStatePDA(referrerKp.publicKey),
+          drawState: draw.pda,
+          userDrawState: getUserDrawStatePDA(draw.pda, referrerKp.publicKey),
+          ticket: bonusTicketPda,
+          systemProgram: SystemProgram.programId,
+        }).signers([referrerKp]).rpc();
+    } catch (e: any) {
+      threw = true;
+      errText = e?.message || String(e);
+    }
+    expect(threw).to.equal(true, "bônus com 2 cryptos deveria ser rejeitado (trava em exatamente 1)");
+    expect(errText).to.match(/InvalidCryptoCount/);
+
+    const referrerStateAfterReject: any = await program.account.userState.fetch(getUserStatePDA(referrerKp.publicKey));
+    expect(referrerStateAfterReject.bonusTicketCredits).to.equal(1, "tentativa rejeitada não deveria consumir o crédito");
+
+    // Agora o claim válido: exatamente 6 números + 1 crypto.
     await (program.methods
-      .claimBonusTicket(Buffer.from(numbers), Buffer.from([4, 6, 9]))
+      .claimBonusTicket(Buffer.from(numbers), Buffer.from([4]))
       .accounts as any)({
         user: referrerKp.publicKey,
         globalState,
@@ -620,6 +656,7 @@ describe("cartela multi-crypto (Etapa 4, sub-etapa 4b)", () => {
       }).signers([referrerKp]).rpc();
 
     const bonusTicket: any = await program.account.ticket.fetch(bonusTicketPda);
-    expect(Array.from(bonusTicket.cryptos as Iterable<number>, (n) => Number(n))).to.deep.equal([4, 6, 9]);
+    expect(Array.from(bonusTicket.cryptos as Iterable<number>, (n) => Number(n))).to.deep.equal([4]);
+    expect(bonusTicket.numbers.length).to.equal(6, "bônus trava em exatamente 6 números");
   });
 });

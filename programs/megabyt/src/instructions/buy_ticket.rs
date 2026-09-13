@@ -1,7 +1,9 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
+use crate::constants::DRAWN_NUMBERS;
 use crate::error::MegabytError;
+use crate::scoring::combinatorial_price;
 use crate::state::{Draw, GlobalState, Ticket, UserDrawState, UserGlobalState};
 use crate::validation::{validate_numbers, validate_cryptos};
 
@@ -95,8 +97,18 @@ pub fn handler(ctx: Context<BuyTicket>, numbers: Vec<u8>, cryptos: Vec<u8>) -> R
     validate_numbers(&numbers, global_state.numbers_count)?;
     validate_cryptos(&cryptos, global_state.crypto_count, global_state.max_crypto_picks)?;
 
+    // Etapa 4 (sub-etapa 4c): preco combinatorio — C(n,6) x k apostas,
+    // cada uma valendo ticket_price. Ainda NAO paga com multiplicidade
+    // (isso e' a 4d/4e) — o ticket continua caindo em 1 tier so'.
+    let price = combinatorial_price(
+        numbers.len() as u8,
+        cryptos.len() as u8,
+        global_state.ticket_price,
+        DRAWN_NUMBERS,
+    ).ok_or(MegabytError::ArithmeticOverflow)?;
+
     require!(
-        ctx.accounts.user_token_account.amount >= global_state.ticket_price,
+        ctx.accounts.user_token_account.amount >= price,
         MegabytError::InvalidTicket
     );
 
@@ -131,7 +143,7 @@ pub fn handler(ctx: Context<BuyTicket>, numbers: Vec<u8>, cryptos: Vec<u8>) -> R
             authority: user.to_account_info(),
         },
     );
-    token::transfer(transfer_ctx, global_state.ticket_price)?;
+    token::transfer(transfer_ctx, price)?;
 
     // Create ticket with current index
     let current_index = user_draw_state.tickets_bought;
@@ -168,22 +180,22 @@ pub fn handler(ctx: Context<BuyTicket>, numbers: Vec<u8>, cryptos: Vec<u8>) -> R
 
     draw_state.total_amount = draw_state
         .total_amount
-        .checked_add(global_state.ticket_price)
+        .checked_add(price)
         .ok_or(MegabytError::ArithmeticOverflow)?;
 
     draw_state.total_collected = draw_state
         .total_collected
-        .checked_add(global_state.ticket_price)
+        .checked_add(price)
         .ok_or(MegabytError::ArithmeticOverflow)?;
 
     draw_state.total_pool = draw_state
         .total_pool
-        .checked_add(global_state.ticket_price)
+        .checked_add(price)
         .ok_or(MegabytError::ArithmeticOverflow)?;
 
     draw_state.prize_pool = draw_state
         .prize_pool
-        .checked_add(global_state.ticket_price)
+        .checked_add(price)
         .ok_or(MegabytError::ArithmeticOverflow)?;
 
     // Only count as new user on FIRST ticket ever (across all draws)
@@ -205,12 +217,12 @@ pub fn handler(ctx: Context<BuyTicket>, numbers: Vec<u8>, cryptos: Vec<u8>) -> R
 
     global_state.total_collected = global_state
         .total_collected
-        .checked_add(global_state.ticket_price)
+        .checked_add(price)
         .ok_or(MegabytError::ArithmeticOverflow)?;
 
     global_state.total_revenue_usdt = global_state
         .total_revenue_usdt
-        .checked_add(global_state.ticket_price)
+        .checked_add(price)
         .ok_or(MegabytError::ArithmeticOverflow)?;
 
     // Increment released supply (each ticket consumes 1 unit of supply)
@@ -222,6 +234,7 @@ pub fn handler(ctx: Context<BuyTicket>, numbers: Vec<u8>, cryptos: Vec<u8>) -> R
     msg!("TICKET BOUGHT");
     msg!("user={}", user.key());
     msg!("draw_id={}", draw_state.id);
+    msg!("price={}", price);
     msg!("ticket_index={}", current_index);
     msg!("tickets_bought_by_user={}", user_draw_state.tickets_bought);
     msg!("released_supply={}/{}", global_state.released_supply, global_state.total_supply_cap);

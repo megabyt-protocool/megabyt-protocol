@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 
+use crate::constants::DRAWN_NUMBERS;
 use crate::error::MegabytError;
 use crate::state::{Draw, GlobalState, Ticket, UserDrawState, UserState};
 use crate::validation::{validate_numbers, validate_cryptos};
@@ -28,9 +29,15 @@ pub fn handler(ctx: Context<ClaimBonusTicket>, numbers: Vec<u8>, cryptos: Vec<u8
         user_draw_state.bump = ctx.bumps.user_draw_state;
     }
 
-    // Validate numbers and crypto
-    validate_numbers(&numbers, global_state.numbers_count)?;
-    validate_cryptos(&cryptos, global_state.crypto_count, global_state.max_crypto_picks)?;
+    // Etapa 4 (sub-etapa 4c): o bonus continua GRATIS, mas trava no
+    // tamanho MINIMO (6 numeros + 1 crypto = 1 aposta) — sem isso, o
+    // preco combinatorio de buy_ticket criaria uma brecha: um credito de
+    // bonus poderia virar uma cartela gigante (ate C(25,6)x10 apostas)
+    // de graca. `max_count`/`max_picks` fixos em DRAWN_NUMBERS/1 (em vez
+    // dos tetos globais) forcam exatamente isso via as mesmas funcoes de
+    // validacao — sem precisar de erro novo.
+    validate_numbers(&numbers, DRAWN_NUMBERS)?;
+    validate_cryptos(&cryptos, global_state.crypto_count, 1)?;
 
     // Supply cap validation: ensure we don't exceed phase limit
     if global_state.total_supply_cap > 0 {

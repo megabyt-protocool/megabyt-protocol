@@ -78,7 +78,7 @@ pub fn resolve_tier(hits: u8, crypto_hit: bool, drawn_count: u8) -> u8 {
 /// Dominio usado pela Etapa 4: `n` ate 25 (`Ticket::MAX_NUMBERS`), `k`
 /// ate 6 (`DRAWN_NUMBERS`) — o maior valor possivel e' C(25,6)=177.100,
 /// muito abaixo do teto de `u64`. Sem risco de overflow nesse dominio.
-fn binomial(n: u8, k: u8) -> u64 {
+pub fn binomial(n: u8, k: u8) -> u64 {
     if k > n {
         return 0;
     }
@@ -88,6 +88,21 @@ fn binomial(n: u8, k: u8) -> u64 {
         result = result * (n as u128 - i) / (i + 1);
     }
     result as u64
+}
+
+/// Etapa 4 (sub-etapa 4c) — preco combinatorio da cartela: C(n,6) x k
+/// apostas, cada uma valendo `base` (o preco de 1 aposta simples,
+/// `global_state.ticket_price`). Reaproveita `binomial` da sub-etapa 4a.
+///
+/// Retorna `None` se a multiplicacao estourar `u64` — no dominio pratico
+/// (n ate 25, k ate 10) isso so' aconteceria com um `base` absurdamente
+/// grande (fora de qualquer cenario real), mas o guard fica por
+/// seguranca (quem chama decide o erro, este modulo continua livre de
+/// dependencia do anchor_lang).
+pub fn combinatorial_price(n: u8, k: u8, base: u64, drawn_count: u8) -> Option<u64> {
+    binomial(n, drawn_count)
+        .checked_mul(k as u64)?
+        .checked_mul(base)
 }
 
 /// Etapa 4 (sub-etapa 4a) — distribuicao de apostas por tier, SEM listar
@@ -444,5 +459,34 @@ mod tier_distribution_tests {
                 }
             }
         }
+    }
+
+    // ---- combinatorial_price() (Etapa 4, sub-etapa 4c) ----
+
+    #[test]
+    fn preco_da_tabela_da_spec() {
+        const BASE: u64 = 1_000_000; // 1 USDT (6 decimais), so' pra ter um numero redondo
+
+        assert_eq!(combinatorial_price(6, 1, BASE, DRAWN), Some(1 * BASE), "6 numeros + 1 crypto = 1x base");
+        assert_eq!(combinatorial_price(6, 2, BASE, DRAWN), Some(2 * BASE), "6 numeros + 2 cryptos = 2x base");
+        assert_eq!(combinatorial_price(7, 1, BASE, DRAWN), Some(7 * BASE), "7 numeros + 1 crypto = 7x base");
+        assert_eq!(combinatorial_price(8, 1, BASE, DRAWN), Some(28 * BASE), "8 numeros + 1 crypto = 28x base");
+        assert_eq!(combinatorial_price(8, 2, BASE, DRAWN), Some(56 * BASE), "8 numeros + 2 cryptos = 56x base");
+    }
+
+    #[test]
+    fn preco_no_teto_absoluto_nao_estoura_com_base_realista() {
+        // C(25,6) x 10 cryptos x base generosa ($1000 USDT, 6 decimais) —
+        // o pior caso pratico do dominio do jogo.
+        let preco = combinatorial_price(25, 10, 1_000_000_000, DRAWN);
+        assert_eq!(preco, Some(177_100u64 * 10 * 1_000_000_000));
+    }
+
+    #[test]
+    fn preco_retorna_none_se_a_base_for_absurda_o_bastante_pra_estourar_u64() {
+        // Nao e' um cenario real (base seria bilhoes de USDT por aposta),
+        // mas o guard de overflow tem que funcionar mesmo assim.
+        let preco = combinatorial_price(25, 10, u64::MAX, DRAWN);
+        assert_eq!(preco, None);
     }
 }

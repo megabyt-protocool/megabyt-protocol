@@ -130,7 +130,11 @@ describe("numbers_count e cartela de tamanho variável (Etapa 3)", () => {
     numbers: number[],
     crypto: number
   ): Promise<{ kp: Keypair; ticketPda: PublicKey }> {
-    const { kp, ata } = await fundWallet(mint, ticketPrice.toNumber() * 2);
+    // Etapa 4 (sub-etapa 4c): preço agora é C(n,6) × k × base — este
+    // arquivo testa cartelas até n=10 (C(10,6)=210), então financia com
+    // bastante folga acima disso em vez do ×2 de antes (que só cobria
+    // o preço fixo de 1 aposta).
+    const { kp, ata } = await fundWallet(mint, ticketPrice.toNumber() * 250);
     const ticketPda = getTicketPDA(drawPda, kp.publicKey, 0);
     const userDrawState = getUserDrawStatePDA(drawPda, kp.publicKey);
     const userGlobalStateAcc = getUserGlobalStatePDA(kp.publicKey);
